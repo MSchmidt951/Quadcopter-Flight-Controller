@@ -44,8 +44,9 @@ int loopTimeCounter = 0;            //Index of loopTime which was last used
 float rpSMA[rRateCount][3]; //Simple moving average of roll and pitch
 int SMAcounter = 0;         //Index of rpSMA which was last used
 //Standby
-bool onStandby = false;
-bool startedStandby = false;
+int standbyStatus = 0; //0: not on standby, 1: starting standby, 2: on standby
+unsigned long standbyStartTime;
+unsigned long standbyOffset = 0;
 bool standbyLights = true;
 unsigned long lightChangeTime = 0;
 
@@ -140,9 +141,9 @@ void checkSD(bool condition) {
   }
 }
 
-void Standby() {
-  if (!startedStandby) {
-    startedStandby = true;
+void standby() {
+  if (standbyStatus == 1) {
+    standbyStatus = 2;
     
     //Turn off all motors
     for (int i=0; i<4; i++) {
@@ -150,8 +151,10 @@ void Standby() {
     }
   
     //Log the drone going into standby
-    logFile.println("\n---Standby---\n");
+    logFile.println("\n--- on standby ---\n");
     logFile.flush();
+
+    standbyStartTime = micros();
   }
 
   radioReceived = 0;
@@ -330,14 +333,18 @@ void loop(){
     potPercent = Data[4]/255.0; //Put between 0-1
     //Get binary info from packet
     light = bitRead(Data[6], 2);
-    
-    onStandby = bitRead(Data[6], 1);
+
+    if (bitRead(Data[6], 1) and standbyStatus == 0) {
+      standbyStatus = 1;
+    } else if (!bitRead(Data[6], 1) and standbyStatus == 2) {
+      standbyOffset += micros() - standbyStartTime;
+      standbyStatus = 0;
+    }
   }
-  if (onStandby) {
-    Standby();
+  
+  if (standbyStatus > 0) {
+    standby();
   } else {
-    startedStandby = false;
-    
     //Abort after connection lost for 450 cycles (nominally just under a second)
     if (radioReceived > 450) {
       ABORT();
@@ -369,7 +376,7 @@ void loop(){
     //Get loop time
     loopTimeCounter++;
     loopTimeCounter %= rRateCount;
-    loopTime[loopTimeCounter] = micros();
+    loopTime[loopTimeCounter] = micros()-standbyOffset;
     //Calculate rotation rate
     rotTime = getLoopTime(-1);
     for (int i=0; i<3; i++) {
@@ -430,8 +437,8 @@ void loop(){
     }
   
     /* Log flight info */
-    logFile.print((micros()-startTime) / 1000);
     logFile.print("|" + String(getLoopTime(1), 1));
+    logFile.print((micros()-startTime-standbyOffset) / 1000);
     logFile.print(logArray(xyzr, 4));
     logFile.print("|" + String(potPercent*100, 1));
     logFile.print(logArray(currentAngle, 2, 2));
