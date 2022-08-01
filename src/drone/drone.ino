@@ -10,6 +10,7 @@
 const float maxZdiff[2] = {.1, .18}; //Percentage z difference for joystick down & up, respectively
 const float potMaxDiff = .06;        //Max percentage difference of potentiometer
 const float maxAngle = 127.0/15.0;   //Maximum wanted bank angle available to select by the user
+const float yawControl = 0.0/127.0;  //How much the joystick affects yaw
 //Offsets
 const float motorOffset[4] = {0, 0, 0, 0}; //Base percentage difference per motor
 const float rpOffset[2] = {6, 0};          //Base gyro angle offset
@@ -20,6 +21,7 @@ const int rRateCount = 25;      //How many loops are used to calculate the rotat
 const float Pgain = .04/45;     //Proportional gain, percentage difference per motor at 45 degrees
 const float Igain = .0017/1000; //Intergral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
 const float Dgain = .0005/-90;  //Differential gain, helps control the rotation speed
+const float yawGain = 0;        //Yaw differential gain
 /*** * * * DRONE SETTINGS * * * ***/
 
 //Radio vars
@@ -40,7 +42,7 @@ unsigned long startTime;            //Start time of flight (in milliseconds)
 unsigned long loopTime[rRateCount]; //Timestamp of last few loops (in milliseconds)
 int loopTimeCounter = 0;            //Index of loopTime which was last used
 //SMA
-float rpSMA[rRateCount][2]; //Simple moving average of roll and pitch
+float rpSMA[rRateCount][3]; //Simple moving average of roll and pitch
 int SMAcounter = 0;         //Index of rpSMA which was last used
 //Standby
 bool onStandby = false;
@@ -60,8 +62,9 @@ float rpDiff[2] = {0,0}; //Difference in roll & pitch from the wanted angle
 float rpDiffPrev[2];     //Difference in roll & pitch from the wanted angle from the previous loop
 float PIDchange[3][2];   //The change from the P, I and D values that will be applied to the roll & pitch; PIDchange[P/I/D][roll/pitch]
 float rotTime;           //Time (in seconds) over which the rotation rate is calculated
-float rRate[2];          //Rotation rate (degrees per second) of roll and pitch
+float rRate[3];          //Rotation rate (degrees per second) of roll and pitch
 float Isum[2];           //The sum of the difference in angles used to calculate the intergral change
+float yawChange;         //The percentage change in motor power to control yaw
 
 //Hardware vars
 const int lightPin = 5;
@@ -213,6 +216,7 @@ void setup(){
   logFile.print("|Pgain:|"); logFile.print(Pgain*45, 4);
   logFile.print("|Igain:|"); logFile.print(Igain*1000, 4);
   logFile.print("|Dgain:|"); logFile.print(Dgain*-90, 5);
+  logFile.print("|yawGain|"); logFile.print(yawGain, 2);
   logFile.println("\nchangeLog:|");
   logFile.println("Time|Loop time|X in|Y in|Z in|R in|Pot|roll|pitch|rRate roll|rRate pitch|P||I||D||FL|FR|BL|BR|FL ESC|FR ESC|BL ESC|BR ESC|light|radio|yaw");
   logFile.flush();
@@ -286,6 +290,7 @@ void setup(){
   for (int i=0; i<rRateCount; i++) {
     rpSMA[i][0] = (-ypr[2] * MPUmult) + rpOffset[0];
     rpSMA[i][1] = (-ypr[1] * MPUmult) + rpOffset[1];
+    rpSMA[i][2] =   ypr[0] * MPUmult;
   }
 
   //Startup lights
@@ -353,7 +358,7 @@ void loop(){
     }
     currentAngle[0] = (-ypr[2] * MPUmult) + rpOffset[0]; //roll
     currentAngle[1] = (-ypr[1] * MPUmult) + rpOffset[1]; //pitch
-    currentAngle[2] = ypr[0] * MPUmult;                  //yaw
+    currentAngle[2] =   ypr[0] * MPUmult;                //yaw
     //Abort if the drone is flipping, is not needed but is a nice failsafe
     if (abs(currentAngle[0]) > 120 or abs(currentAngle[1]) > 120) {
       ABORT();
@@ -362,8 +367,9 @@ void loop(){
     //Update SMA values
     SMAcounter++;
     SMAcounter %= rRateCount;
-    rpSMA[SMAcounter][0] = currentAngle[0];
-    rpSMA[SMAcounter][1] = currentAngle[1];
+    for (int i=0; i<3; i++) {
+      rpSMA[SMAcounter][i] = currentAngle[i];
+    }
     
     //Get loop time
     loopTimeCounter++;
@@ -371,7 +377,7 @@ void loop(){
     loopTime[loopTimeCounter] = micros();
     //Calculate rotation rate
     rotTime = getLoopTime(-1) / 1000;
-    for (int i=0; i<2; i++) {
+    for (int i=0; i<3; i++) {
       rRate[i] = (rpSMA[SMAcounter][i] - rpSMA[(SMAcounter+1) % rRateCount][i]) / rotTime;
     }
 
@@ -415,6 +421,18 @@ void loop(){
     //Apply the calculated roll and pitch change
     applyChange(0, 0,2, 1,3);
     applyChange(1, 0,1, 2,3);
+
+    //Yaw control
+    if (xyzr[3] == 0) {
+      yawChange = rRate[2] * yawGain; //Stabilise yaw rotation
+    } else {
+      yawChange = xyzr[3] * yawControl; //Joystick control
+    }
+    //Apply yaw change
+    motorPower[0] += yawChange;
+    motorPower[3] += yawChange;
+    motorPower[1] -= yawChange;
+    motorPower[2] -= yawChange;
 
 
     /* Apply input to hardware */
