@@ -40,6 +40,8 @@ const float MPUmult = 180 / M_PI; //Constant used to convert from MPU6050 data t
 unsigned long startTime;            //Start time of flight (in milliseconds)
 unsigned long loopTime[rRateCount]; //Timestamp of last few loops (in milliseconds)
 int loopTimeCounter = 0;            //Index of loopTime which was last used
+int timerIndex;
+unsigned long loopTimings[20];
 //SMA
 float rpSMA[rRateCount][3]; //Simple moving average of roll and pitch
 int SMAcounter = 0;         //Index of rpSMA which was last used
@@ -128,6 +130,34 @@ String logArray(float *arr, int len, int decimals){
   }
   return arrayString;
 }
+
+void calcTime(){
+  if (timerIndex < 20) {
+    loopTimings[timerIndex] = micros();
+    timerIndex++;
+  }
+}
+
+//This function is to be used along with calcTime to calculate how long each part of the loop takes
+void logLoopTimings(){
+  //Process
+  for(int i=0; i<19; i++) {
+    if (loopTimings[i+1] != 0) {
+      loopTimings[i] = loopTimings[i+1] - loopTimings[i];
+    }
+  }
+  
+  //Log
+  logFile.println(logArray(loopTimings, timerIndex-1));
+  
+  //Reset the variables for the next loop
+  timerIndex = 0;
+  for(int i=1; i<20; i++) {
+    loopTimings[i] = 0;
+  }
+  calcTime();
+}
+
 
 void checkSD(bool condition) {
   if (!condition) {
@@ -310,6 +340,7 @@ void setup(){
 
 
 void loop(){
+  logLoopTimings();
   /* Recieve input data */
   radioReceived++;
   if (radio.available()) {
@@ -455,7 +486,7 @@ void loop(){
     logFile.print(logArray(PIDchange[2], 2, 3));
     logFile.print(logArray(motorPower, 4, 0));
     logFile.print("," + String(radioReceived));
-    logFile.println("," + String(currentAngle[2], 1));
+    logFile.print("," + String(currentAngle[2], 1));
     
     logLoopCounter++;
     if (logLoopCounter == maxLogLoopCounter) {
