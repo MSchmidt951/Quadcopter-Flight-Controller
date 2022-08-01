@@ -78,6 +78,8 @@ SdFs sd;
 FsFile logFile;
 const int logFileSize = 32 * 1024 * 1024; //32 million bytes of pre allocated data (used up in around 10 mins)
 int radioReceived = 0;                    //The number of loops done since the last radio signal
+const int maxLogLoopCounter = 10;         //How often the log is written to the SD card
+int logLoopCounter = 0;
 
 //Functions
 
@@ -453,6 +455,11 @@ void loop(){
     logFile.print(logArray(motorPower, 4, 1));
     logFile.print("|" + String(radioReceived));
     logFile.println("|" + String(currentAngle[2], 1));
-    logFile.flush();
+    
+    logLoopCounter++;
+    if (logLoopCounter == maxLogLoopCounter) {
+      logFile.flush();
+      logLoopCounter = 0;
+    }
   }
 }
