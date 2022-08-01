@@ -17,17 +17,18 @@ float potPercent = 0.0;
 bool light = false;
 
 //Pos vars
-const float maxZdiff = 0.15;
-const float defaultZ = 0.2;
+const float maxZdiff = 0.14;
+const float defaultZ = 0.5;
 const float maxAngle = 127.0/30.0;
+float currentAngle[2] = {0, 0};
 float xyDiff[2] = {0, 0};
 const float maxDiff = .05;
-float xyMult[2] = {0, 0};
+float xyChange[2] = {0, 0};
 
 //Hardware vars
 const int lightPin = 3;
-const int motors[4] = {20, 21, 22, 23}; //FL, FR, BL, BR
-Servo ESC[4]; //65-160
+const int motors[4] = {23, 22, 21, 20}; //FL, FR, BL, BR
+Servo ESC[4]; //35-135
 float motorPower[4] = {0, 0, 0, 0}; //0-1; FL, FR, BL, BR
 const int chipSelect = BUILTIN_SDCARD;
 
@@ -36,7 +37,7 @@ File logFile;
 unsigned long timerOffset;
 String logStr;
 int ESCvals[4];
-bool radioReceived;
+int radioReceived = 0;
 
 //Functions
 
@@ -51,27 +52,40 @@ void blink(int d){
   delay(d);
 }
 
-void applyMult(float mult, int pA, int pB, int nA, int nB){
-  motorPower[pA] *= 1+mult;
-  motorPower[pB] *= 1+mult;
+void applyChange(float change, int pA, int pB, int nA, int nB){
+  motorPower[pA] += change;
+  motorPower[pB] += change;
   
-  motorPower[nA] *= 1-mult;
-  motorPower[nB] *= 1-mult;
+  motorPower[nA] -= change;
+  motorPower[nB] -= change;
 }
 
 String logArray(int *arr, int len){
-  String arrayString = " ";
+  String arrayString = "";
   for (int i=0; i<len; i++) {
     arrayString += "|" + String(arr[i]);
   }
   return arrayString;
 }
 String logArray(float *arr, int len){
-  String arrayString = " ";
+  String arrayString = "";
   for (int i=0; i<len; i++) {
     arrayString += "|" + String(arr[i]);
   }
   return arrayString;
+}
+
+void ABORT(){ //This can also be used to turn off all the motors after landing
+  for (;;){
+    for (int i=0; i<4; i++){
+      ESC[i].write(0);
+    }
+    blink(111);
+    for (int i=0; i<4; i++){
+      ESC[i].write(0);
+    }
+    blink(1234);
+  }
 }
 
 
@@ -88,9 +102,9 @@ void setup(){
 
   //Set up motors
   for (int i=0; i<4; i++){
-    ESC[i].attach(motors[i]);
+    ESC[i].attach(motors[i], 1000, 2000);
+    delay(1);
     ESC[i].write(0);
-    ESC[i].write(5);
   }
   digitalWrite(lightPin, HIGH);
   delay(4000);
@@ -98,11 +112,11 @@ void setup(){
   delay(1000);
   for (int i=0; i<4; i++){
     digitalWrite(lightPin, HIGH);
-    ESC[i].write(70);
-    delay(250);
+    ESC[i].write(40);
+    delay(800);
     ESC[i].write(0);
     digitalWrite(lightPin, LOW);
-    delay(750);
+    delay(200);
   }
   
   digitalWrite(lightPin, HIGH);
@@ -133,9 +147,9 @@ void loop(){
   mpu.Execute();
   
   /* Recieve input data */
-  radioReceived = false;
+  radioReceived++;
   if (radio.available()) {
-    radioReceived = true;
+    radioReceived = 0;
     //Get data from controller
     while (radio.available()) {
       radio.read(&Data, sizeof(char[6]));
@@ -154,14 +168,12 @@ void loop(){
 
     //abort
     if (bitRead(Data[5], 0)) {
-      for (int i=0; i<4; i++){
-        analogWrite(motors[i], 0);
-      }
-      for (;;){
-        blink(111);
-        blink(1234);
-      }
+      ABORT();
     }
+  }
+  //Abort after connection lost for 100 cycles
+  if (radioReceived > 100) {
+    ABORT();
   }
   
   /* Set motor speeds */
@@ -170,30 +182,33 @@ void loop(){
     motorPower[i] = potPercent/2 + (maxZdiff * xyzr[2]/127);
   }
 
-  //Get difference between wanted and current angle
-  xyDiff[1] = xyzr[0]/maxAngle - mpu.GetAngX();
-  xyDiff[0] = xyzr[1]/maxAngle - mpu.GetAngY();
+  //Get current angle
+  currentAngle[0] = mpu.GetAngX();
+  currentAngle[1] = mpu.GetAngY();
+  //Abort if the drone is flipping, is not needed but is a nice failsafe
+  if (abs(currentAngle[0]) > 111 or abs(currentAngle[1]) > 111) {
+    ABORT();
+  }
   
-  //Get multipliter for the X and Y axis
-  for (int i=0; i<2; i++){
-    xyMult[i] = xyDiff[i]*maxDiff/90;
+  for (int i=0; i<2; i++) {
+    //Get difference between wanted and current angle
+    xyDiff[i] = xyzr[i]/maxAngle - currentAngle[i];
+  
+    //Get percentage change for the X and Y axis
+    xyChange[i] = xyDiff[i]*maxDiff/90;
   }
   
   //Apply multipliers
-  applyMult(xyMult[0], 0,1, 2,3);
-  applyMult(xyMult[1], 0,2, 1,3);
-  //applyMult(xyzr[3], 0,3, 1,2);
+  applyChange(-xyChange[0], 0,2, 1,3);
+  applyChange( xyChange[1], 0,1, 2,3);
+  //applyMult(maxDiff*xyzr[3]/127, 0,3, 1,2);
   
   /* Apply input to hardware */
   digitalWrite(lightPin, light);
   for (int i=0; i<4; i++){
     motorPower[i] = min(max(0, motorPower[i]*100), 100); //Limit values
-    if (motorPower[i] <= 0.1){
-      ESC[i].write(0);
-    } else {
-      ESCvals[i] = map(toInt(motorPower[i]), 1, 100, 65, 160);
-      ESC[i].write(ESCvals[i]);
-    }
+    ESCvals[i] = motorPower[i] + 35; //Convert from ESC value to motor power
+    ESC[i].write(ESCvals[i]);
   }
 
   /* Log flight info */
@@ -201,12 +216,12 @@ void loop(){
   if (logFile) {
     logStr = String(millis()-timerOffset);
     logStr += logArray(xyzr, 4);
-    logStr += " |" + String(potPercent*100);
-    logStr += logArray(xyMult, 2);
+    logStr += "|" + String(potPercent*100);
+    logStr += logArray(currentAngle, 2);
     logStr += logArray(motorPower, 4);
     logStr += logArray(ESCvals, 4);
-    logStr += " |" + String(light);
-    logStr += " |" + String(radioReceived);
+    logStr += "|" + String(light ? 10 : 0);
+    logStr += "|" + String(radioReceived);
 
     logFile.println(logStr);
     logFile.close();
