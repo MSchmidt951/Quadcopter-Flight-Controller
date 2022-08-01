@@ -117,14 +117,14 @@ void applyChange(int axis, int pA, int pB, int nA, int nB){
 String logArray(int *arr, int len){
   String arrayString = "";
   for (int i=0; i<len; i++) {
-    arrayString += "|" + String(arr[i]);
+    arrayString += "," + String(arr[i]);
   }
   return arrayString;
 }
 String logArray(float *arr, int len, int decimals){
   String arrayString = "";
   for (int i=0; i<len; i++) {
-    arrayString += "|" + String(arr[i], decimals);
+    arrayString += "," + String(arr[i], decimals);
   }
   return arrayString;
 }
@@ -204,21 +204,22 @@ void setup(){
   checkSD(logFile.preAllocate(logFileSize));
   //Log the settings
   logFile.println("User input");
-  logFile.print("maxZdiff:"); logFile.print(logArray(maxZdiff, 2, 2));
-  logFile.print("|potMaxDiff:|"); logFile.print(potMaxDiff);
-  logFile.print("|maxAngle:|"); logFile.print(127/maxAngle);
+  logFile.print("maxZdiff"); logFile.print(logArray(maxZdiff, 2, 2));
+  logFile.print(",potMaxDiff,"); logFile.print(potMaxDiff);
+  logFile.print(",maxAngle,"); logFile.print(127/maxAngle);
+  logFile.print(",yawControl,"); logFile.print(maxAngle/127, 2);
   logFile.println("\nOffsets");
-  logFile.print("motorOffset:"); logFile.print(logArray(motorOffset, 4, 3));
-  logFile.print("|rpOffset:"); logFile.print(logArray(rpOffset, 2, 2));
-  logFile.print("|defaultZ:|"); logFile.print(defaultZ);
+  logFile.print("motorOffset"); logFile.print(logArray(motorOffset, 4, 3));
+  logFile.print(",rpOffset"); logFile.print(logArray(rpOffset, 2, 2));
+  logFile.print(",defaultZ,"); logFile.print(defaultZ);
   logFile.println("\nPerformance");
-  logFile.print("|rRateCount:|"); logFile.print(rRateCount);
-  logFile.print("|Pgain:|"); logFile.print(Pgain*45, 4);
-  logFile.print("|Igain:|"); logFile.print(Igain*1000, 4);
-  logFile.print("|Dgain:|"); logFile.print(-Dgain, 5);
-  logFile.print("|yawGain|"); logFile.print(yawGain, 2);
-  logFile.println("\nchangeLog:|");
-  logFile.println("Time|Loop time|X in|Y in|Z in|R in|Pot|roll|pitch|P||I||D||FL|FR|BL|BR|radio|yaw");
+  logFile.print("rRateCount:,"); logFile.print(rRateCount);
+  logFile.print(",Pgain,"); logFile.print(Pgain*1000, 2);
+  logFile.print(",Igain,"); logFile.print(Igain*1000, 4);
+  logFile.print(",Dgain,"); logFile.print(-Dgain, 3);
+  logFile.print(",yawGain,"); logFile.print(yawGain, 2);
+  logFile.println("\nchangeLog,");
+  logFile.println("Time,Loop time,Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,FL,FR,BL,BR,radio,yaw");
   logFile.flush();
 
   //Set up motors
@@ -444,17 +445,17 @@ void loop(){
     }
   
     /* Log flight info */
-    logFile.print("|" + String(getLoopTime(1), 1));
     logFile.print((micros()-startTime-standbyOffset) / 1000);
+    logFile.print("," + String(getLoopTime(1), 1));
     logFile.print(logArray(xyzr, 4));
-    logFile.print("|" + String(potPercent*100, 1));
+    logFile.print("," + String(potPercent*100));
     logFile.print(logArray(currentAngle, 2, 2));
     logFile.print(logArray(PIDchange[0], 2, 3));
     logFile.print(logArray(PIDchange[1], 2, 3));
     logFile.print(logArray(PIDchange[2], 2, 3));
-    logFile.print(logArray(motorPower, 4, 1));
-    logFile.print("|" + String(radioReceived));
-    logFile.println("|" + String(currentAngle[2], 1));
+    logFile.print(logArray(motorPower, 4, 0));
+    logFile.print("," + String(radioReceived));
+    logFile.println("," + String(currentAngle[2], 1));
     
     logLoopCounter++;
     if (logLoopCounter == maxLogLoopCounter) {
