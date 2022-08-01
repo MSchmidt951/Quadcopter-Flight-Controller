@@ -18,8 +18,8 @@ const float defaultZ = .36;                //Default motor percentage, take off 
 //Performance
 const int rRateCount = 25;      //How many loops are used to calculate the rotation rate, minimum 2
 const float Pgain = .04/45;     //Proportional gain, percentage difference per motor at 45 degrees
-const float Igain = .0017/1000; //Intergral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
-const float Dgain = .0005/-90;  //Differential gain, helps control the rotation speed
+const float Igain = .0017/1000; //Integral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
+const float Dgain = -.33;       //Differential gain, helps control the rotation speed
 const float yawGain = 0;        //Yaw differential gain
 /*** * * * DRONE SETTINGS * * * ***/
 
@@ -58,11 +58,10 @@ bool light = false;
 //Rotation vars
 float currentAngle[3];   //Current angle of roll and pitch (in degrees)
 float rpDiff[2] = {0,0}; //Difference in roll & pitch from the wanted angle
-float rpDiffPrev[2];     //Difference in roll & pitch from the wanted angle from the previous loop
 float PIDchange[3][2];   //The change from the P, I and D values that will be applied to the roll & pitch; PIDchange[P/I/D][roll/pitch]
 float rotTime;           //Time (in seconds) over which the rotation rate is calculated
 float rRate[3];          //Rotation rate (degrees per second) of roll and pitch
-float Isum[2];           //The sum of the difference in angles used to calculate the intergral change
+float Isum[2];           //The sum of the difference in angles used to calculate the integral change
 float yawChange;         //The percentage change in motor power to control yaw
 
 //Hardware vars
@@ -212,7 +211,7 @@ void setup(){
   logFile.print("|rRateCount:|"); logFile.print(rRateCount);
   logFile.print("|Pgain:|"); logFile.print(Pgain*45, 4);
   logFile.print("|Igain:|"); logFile.print(Igain*1000, 4);
-  logFile.print("|Dgain:|"); logFile.print(Dgain*-90, 5);
+  logFile.print("|Dgain:|"); logFile.print(-Dgain, 5);
   logFile.print("|yawGain|"); logFile.print(yawGain, 2);
   logFile.println("\nchangeLog:|");
   logFile.println("Time|Loop time|X in|Y in|Z in|R in|Pot|roll|pitch|P||I||D||FL|FR|BL|BR|radio|yaw");
@@ -393,26 +392,17 @@ void loop(){
     //Calculate the change in motor power per axis
     for (int i=0; i<2; i++) {
       //Get difference between wanted and current angle
-      rpDiffPrev[i] = rpDiff[i];
       rpDiff[i] = (-xyzr[i]/maxAngle) - currentAngle[i];
     
       //Get proportional change
       PIDchange[0][i] = Pgain * rpDiff[i];
     
-      //Get intergral change
-      if ((rpDiffPrev[i]<=0 and rpDiff[i]>=0) or (rpDiffPrev[i]>=0 and rpDiff[i]<=0)) { //Check if the desired angle has been acheived
-        Isum[i] /= 1.3; //Reset intergral sum if the desired angle is acheived
-      } else {
-        Isum[i] += rpDiff[i] * getLoopTime(1);
-      }
+      //Get integral change
+      Isum[i] += rpDiff[i] * getLoopTime(1);
       PIDchange[1][i] = Igain * Isum[i];
       
       //Get derivative change
-      if (rRate[i] > 0) {
-        PIDchange[2][i] = min(0, Dgain *  rRate[i] * (rpDiff[i]+50));
-      } else {
-        PIDchange[2][i] = max(0, Dgain * -rRate[i] * (rpDiff[i]-50));
-      }
+      PIDchange[2][i] = Dgain *  rRate[i];
     }
     
     //Apply the calculated roll and pitch change
