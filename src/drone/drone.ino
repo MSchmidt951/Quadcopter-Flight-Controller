@@ -16,7 +16,6 @@ const float motorOffset[4] = {0, 0, 0, 0}; //Base percentage difference per moto
 const float rpOffset[2] = {6, 0};          //Base gyro angle offset
 const float defaultZ = .36;                //Default motor percentage, take off at appx .38
 //Performance
-const float maxDiff = .2;       //Max percentage difference per motor per axis
 const int rRateCount = 25;      //How many loops are used to calculate the rotation rate, minimum 2
 const float Pgain = .04/45;     //Proportional gain, percentage difference per motor at 45 degrees
 const float Igain = .0017/1000; //Intergral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
@@ -105,18 +104,12 @@ float getLoopTime(int Step){
 void applyChange(int axis, int pA, int pB, int nA, int nB){
   float change = PIDchange[0][axis] + PIDchange[1][axis] + PIDchange[2][axis];
 
-  if (change >= 0) {
-    motorPower[pA] += min(change, maxDiff);
-    motorPower[pB] += min(change, maxDiff);
-    
-    motorPower[nA] -= .5 * min(change, maxDiff);
-    motorPower[nB] -= .5 * min(change, maxDiff);
-  } else {
-    motorPower[pA] += max(change, -maxDiff);
-    motorPower[pB] += max(change, -maxDiff);
-    
-    motorPower[nA] -= .5 * max(change, -maxDiff);
-    motorPower[nB] -= .5 * max(change, -maxDiff);
+  if (abs(change) > .00277) {
+    motorPower[pA] += change;
+    motorPower[pB] += change;
+
+    motorPower[nA] -= change - .00277;
+    motorPower[nB] -= change - .00277;
   }
 }
 
@@ -216,7 +209,6 @@ void setup(){
   logFile.print("|rpOffset:"); logFile.print(logArray(rpOffset, 2, 2));
   logFile.print("|defaultZ:|"); logFile.print(defaultZ);
   logFile.println("\nPerformance");
-  logFile.print("maxDiff:|"); logFile.print(maxDiff);
   logFile.print("|rRateCount:|"); logFile.print(rRateCount);
   logFile.print("|Pgain:|"); logFile.print(Pgain*45, 4);
   logFile.print("|Igain:|"); logFile.print(Igain*1000, 4);
