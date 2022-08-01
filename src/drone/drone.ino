@@ -377,6 +377,11 @@ void loop(){
     loopTimeCounter++;
     loopTimeCounter %= rRateCount;
     loopTime[loopTimeCounter] = micros()-standbyOffset;
+    //Make sure the loop is at least 2 milliseconds long
+    while (getLoopTime(1) < 2) {
+      delayMicroseconds(2);
+      loopTime[loopTimeCounter] = micros()-standbyOffset;
+    }
     //Calculate rotation rate
     rotTime = getLoopTime(-1);
     for (int i=0; i<3; i++) {
