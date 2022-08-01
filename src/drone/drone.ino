@@ -14,10 +14,10 @@ const float yawControl = 0.0/127.0;  //How much the joystick affects yaw
 //Offsets
 const float motorOffset[4] = {0, 0, 0, 0}; //Base percentage difference per motor
 const float rpOffset[2] = {6, 0};          //Base gyro angle offset
-const float defaultZ = .36;                //Default motor percentage, take off at appx .38
+const float defaultZ = .36;                //Default motor percentage
 //Performance
 const int rRateCount = 25;      //How many loops are used to calculate the rotation rate, minimum 2
-const float Pgain = .04/45;     //Proportional gain, percentage difference per motor at 45 degrees
+const float Pgain = 2.4/1000;   //Proportional gain, percentage difference per ESC at 10 degrees
 const float Igain = .0017/1000; //Integral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
 const float Dgain = -.33;       //Differential gain, helps control the rotation speed
 const float yawGain = 0;        //Yaw differential gain
@@ -75,8 +75,8 @@ Servo ESC[4];                           //0-180
 //Log vars
 SdFs sd;
 FsFile logFile;
-int logFileSize = 34000000; //34 million bytes of pre allocated data (used up in around 10 mins), around 55 kb data produced per second
-int radioReceived = 0;      //The number of loops done since the last radio signal
+const int logFileSize = 32 * 1024 * 1024; //32 million bytes of pre allocated data (used up in around 10 mins)
+int radioReceived = 0;                    //The number of loops done since the last radio signal
 
 //Functions
 
@@ -228,7 +228,7 @@ void setup(){
   delay(1000);
   for (int i=0; i<4; i++){
     digitalWrite(lightPin, HIGH);
-    ESC[i].write(20);
+    ESC[i].write(10);
     delay(500);
     ESC[i].write(0);
     digitalWrite(lightPin, LOW);
@@ -338,8 +338,8 @@ void loop(){
   } else {
     startedStandby = false;
     
-    //Abort after connection lost for 400 cycles (nominally just under a second)
-    if (radioReceived > 400) {
+    //Abort after connection lost for 450 cycles (nominally just under a second)
+    if (radioReceived > 450) {
       ABORT();
     }
 
@@ -354,7 +354,7 @@ void loop(){
     currentAngle[0] = (-ypr[2] * MPUmult) + rpOffset[0]; //roll
     currentAngle[1] = (-ypr[1] * MPUmult) + rpOffset[1]; //pitch
     currentAngle[2] =   ypr[0] * MPUmult;                //yaw
-    //Abort if the drone is flipping, is not needed but is a nice failsafe
+    //Abort if the drone is flipping, is not needed but is a nice failsafe when testing new features
     if (abs(currentAngle[0]) > 120 or abs(currentAngle[1]) > 120) {
       ABORT();
     }
