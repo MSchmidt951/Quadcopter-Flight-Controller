@@ -59,8 +59,8 @@ bool light = false;
 float currentAngle[3];   //Current angle of roll and pitch (in degrees)
 float rpDiff[2] = {0,0}; //Difference in roll & pitch from the wanted angle
 float PIDchange[3][2];   //The change from the P, I and D values that will be applied to the roll & pitch; PIDchange[P/I/D][roll/pitch]
-float rotTime;           //Time (in seconds) over which the rotation rate is calculated
-float rRate[3];          //Rotation rate (degrees per second) of roll and pitch
+float rotTime;           //Time (in milliseconds) over which the rotation rate is calculated
+float rRate[3];          //Rotation rate (degrees per millisecond) of roll, pitch and yaw
 float Isum[2];           //The sum of the difference in angles used to calculate the integral change
 float yawChange;         //The percentage change in motor power to control yaw
 
@@ -92,7 +92,7 @@ void blink(int d){
   delay(d);
 }
 
-float getLoopTime(int Step){
+float getLoopTime(int Step){ //Return the loop time in microseconds
   int index = (loopTimeCounter-Step) % rRateCount;
   if (index < 0){
     index = rRateCount+index;
@@ -372,7 +372,7 @@ void loop(){
     loopTimeCounter %= rRateCount;
     loopTime[loopTimeCounter] = micros();
     //Calculate rotation rate
-    rotTime = getLoopTime(-1) / 1000;
+    rotTime = getLoopTime(-1);
     for (int i=0; i<3; i++) {
       rRate[i] = (rpSMA[SMAcounter][i] - rpSMA[(SMAcounter+1) % rRateCount][i]) / rotTime;
     }
