@@ -198,7 +198,12 @@ void setup(){
 
   //Set up SD card
   checkSD(sd.begin(SdioConfig(FIFO_SDIO)));
-  logFile.remove("log.csv");
+  if (sd.exists("log.csv")) {
+    sd.remove("log_old.csv");
+    logFile.open("log.csv", O_WRITE);
+    logFile.rename("log_old.csv");
+    logFile.close();
+  }
   logFile.open("log.csv", O_WRITE | O_CREAT | O_TRUNC);
   checkSD(logFile.preAllocate(logFileSize));
   //Log the settings
