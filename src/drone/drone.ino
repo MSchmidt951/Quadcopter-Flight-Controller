@@ -76,7 +76,6 @@ Servo ESC[4];                           //0-180
 SdFs sd;
 FsFile logFile;
 int logFileSize = 34000000; //34 million bytes of pre allocated data (used up in around 10 mins), around 55 kb data produced per second
-int ESCvals[4];
 int radioReceived = 0;      //The number of loops done since the last radio signal
 
 //Functions
@@ -425,10 +424,9 @@ void loop(){
     /* Apply input to hardware */
     digitalWrite(lightPin, light);
     for (int i=0; i<4; i++){
-      motorPower[i] += motorOffset[i];
-      motorPower[i] = min(max(0, motorPower[i]*100), 100); //Limit values to 0 - 100
-      ESCvals[i] = toInt(motorPower[i] * 1.8); //Convert from ESC value to motor power
-      ESC[i].write(ESCvals[i]);
+      motorPower[i] += motorOffset[i]/100;
+      motorPower[i] = min(max(0, motorPower[i]*1000), 1000); //Limit values to 0 - 1000
+      ESC[i].writeMicroseconds(1000 + toInt(motorPower[i])); //Round motor power and apply it to the ESC
     }
   
     /* Log flight info */
