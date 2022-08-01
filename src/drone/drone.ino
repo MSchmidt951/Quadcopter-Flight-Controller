@@ -223,7 +223,7 @@ void setup(){
   logFile.print("|Dgain:|"); logFile.print(Dgain*-90, 5);
   logFile.print("|yawGain|"); logFile.print(yawGain, 2);
   logFile.println("\nchangeLog:|");
-  logFile.println("Time|Loop time|X in|Y in|Z in|R in|Pot|roll|pitch|rRate roll|rRate pitch|P||I||D||FL|FR|BL|BR|FL ESC|FR ESC|BL ESC|BR ESC|light|radio|yaw");
+  logFile.println("Time|Loop time|X in|Y in|Z in|R in|Pot|roll|pitch|P||I||D||FL|FR|BL|BR|radio|yaw");
   logFile.flush();
 
   //Set up motors
@@ -455,13 +455,10 @@ void loop(){
     logFile.print(logArray(xyzr, 4));
     logFile.print("|" + String(potPercent*100, 1));
     logFile.print(logArray(currentAngle, 2, 2));
-    logFile.print(logArray(rRate, 2, 1));
     logFile.print(logArray(PIDchange[0], 2, 3));
     logFile.print(logArray(PIDchange[1], 2, 3));
     logFile.print(logArray(PIDchange[2], 2, 3));
     logFile.print(logArray(motorPower, 4, 1));
-    logFile.print(logArray(ESCvals, 4));
-    logFile.print("|" + String(light ? 50 : 0));
     logFile.print("|" + String(radioReceived));
     logFile.println("|" + String(currentAngle[2], 1));
     logFile.flush();
