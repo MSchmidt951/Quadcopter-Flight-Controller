@@ -237,7 +237,7 @@ void setup(){
   logFile.print("maxZdiff"); logFile.print(logArray(maxZdiff, 2, 2));
   logFile.print(",potMaxDiff,"); logFile.print(potMaxDiff);
   logFile.print(",maxAngle,"); logFile.print(127/maxAngle);
-  logFile.print(",yawControl,"); logFile.print(maxAngle/127, 2);
+  logFile.print(",yawControl,"); logFile.print(yawControl*127, 2);
   logFile.println("\nOffsets");
   logFile.print("motorOffset"); logFile.print(logArray(motorOffset, 4, 3));
   logFile.print(",rpOffset"); logFile.print(logArray(rpOffset, 2, 2));
