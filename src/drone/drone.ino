@@ -1,7 +1,7 @@
-#include <RF24.h>
 #include <Servo.h>
 #include <SdFat.h>
 
+#include "DroneRadio.h"
 #include "IMU.h"
 
 /*** * * * DRONE SETTINGS * * * ***/
@@ -22,10 +22,6 @@ const float Dgain = -.33;       //Differential gain, helps control the rotation 
 const float yawGain = 0;        //Yaw differential gain
 /*** * * * DRONE SETTINGS * * * ***/
 
-//Radio vars
-RF24 radio(25, 10); //Sets CE and CSN pins of the radio
-byte addresses[][6] = {"C", "D"};
-
 //Time vars
 unsigned long startTime;            //Start time of flight (in milliseconds)
 unsigned long loopTime[rRateCount]; //Timestamp of last few loops (in milliseconds)
@@ -40,10 +36,10 @@ bool standbyLights = true;
 unsigned long lightChangeTime = 0;
 
 //Input vars
-char Data[7];            //Input data from radio
 int xyzr[4] = {0,0,0,0}; //Joystick inputs for x, y, z and rotation(yaw) (from -127 to 127)
 float potPercent = 0;    //Percentage of the controllers potentiometer, used as a trim
 bool light = false;
+bool standbyButton = false;
 
 //Rotation vars
 IMU imu(rpOffset[0], rpOffset[1]);
@@ -55,6 +51,7 @@ float yawChange;         //The percentage change in motor power to control yaw
 //Hardware vars
 const int lightPin = 5;
 const int chipSelect = SS;
+DroneRadio droneRadio;
 const int motors[4] = {23, 22, 21, 20}; //FL, FR, BL, BR
 float initialPower;                     //The base motor power percentage at the start of each loop
 float motorPower[4];                    //Percentage; FL, FR, BL, BR
@@ -64,7 +61,6 @@ Servo ESC[4];                           //0-180
 SdFs sd;
 FsFile logFile;
 const int logFileSize = 32 * 1024 * 1024; //32 million bytes of pre allocated data (used up in around 10 mins)
-int radioReceived = 0;                    //The number of loops done since the last radio signal
 const int maxLogLoopCounter = 10;         //How often the log is written to the SD card
 int logLoopCounter = 0;
 
@@ -174,7 +170,7 @@ void standby() {
     standbyStartTime = micros();
   }
 
-  radioReceived = 0;
+  droneRadio.radioReceived = 0;
   //Blink lights
   if (millis()-lightChangeTime > 750) {
     lightChangeTime = millis();
@@ -261,21 +257,7 @@ void setup(){
   }
   
   //Set up communication
-  radio.begin();
-  radio.setPALevel(RF24_PA_MAX);
-  radio.setDataRate(RF24_1MBPS);
-  radio.setChannel(124);
-  
-  //Open pipe
-  radio.openWritingPipe(addresses[1]);
-  radio.openReadingPipe(1, addresses[0]);
-  
-  //Ready drone
-  for (int i=0; i<10; i++){
-    radio.write(0b01010101, 1);
-    delay(5);
-  }
-  radio.startListening();
+  droneRadio.init();
 
   //Startup lights
   delay(100);
@@ -294,48 +276,23 @@ void setup(){
 
 void loop(){
   logLoopTimings();
-  /* Recieve input data */
-  radioReceived++;
-  if (radio.available()) {
-    //Lower the counter for loss of connection after receiving radio
-    radioReceived = max(radioReceived-25, 0);
-    //Get data from controller
-    while (radio.available()) {
-      radio.read(&Data, sizeof(char[7]));
-    }
-    
-    //Abort button
-    if (bitRead(Data[6], 0)) {
-      ABORT();
-    }
-    
-    //Get analog info from packet
-    for (int i=0; i<4; i++) {
-      xyzr[i] = Data[i] - 127;
-      if (abs(xyzr[i]) < 5) { //Joystick deadzone
-       xyzr[i] = 0;
-      }
-    }
-    xyzr[1] = -xyzr[1]; //Correct pitch
-    potPercent = Data[4]/255.0; //Put between 0-1
-    //Get binary info from packet
-    light = bitRead(Data[6], 2);
 
-    if (bitRead(Data[6], 1) and standbyStatus == 0) {
-      standbyStatus = 1;
-    } else if (!bitRead(Data[6], 1) and standbyStatus == 2) {
-      standbyOffset += micros() - standbyStartTime;
-      standbyStatus = 0;
-    }
+  // Recieve input data
+  droneRadio.getInput();
+
+  //Check standby status
+  if (standbyButton and standbyStatus == 0) {
+    standbyStatus = 1;
+  } else if (!standbyButton and standbyStatus == 2) {
+    standbyOffset += micros() - standbyStartTime;
+    standbyStatus = 0;
   }
   
   if (standbyStatus > 0) {
     standby();
   } else {
-    //Abort after connection lost for 450 cycles (nominally just under a second)
-    if (radioReceived > 450) {
-      ABORT();
-    }
+    //Check radio signal
+    droneRadio.checkSignal();
 
 
     /* Get current angle */
@@ -414,7 +371,7 @@ void loop(){
     logFile.print(logArray(PIDchange[1], 2, 3));
     logFile.print(logArray(PIDchange[2], 2, 3));
     logFile.print(logArray(motorPower, 4, 0));
-    logFile.print("," + String(radioReceived));
+    logFile.print("," + String(droneRadio.radioReceived));
     logFile.print("," + String(imu.currentAngle[2], 1));
     
     logLoopCounter++;
