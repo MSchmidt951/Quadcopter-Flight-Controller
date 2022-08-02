@@ -44,9 +44,8 @@ bool standbyButton = false;
 //Rotation vars
 IMU imu(rpOffset[0], rpOffset[1]);
 float rpDiff[2] = {0,0}; //Difference in roll & pitch from the wanted angle
-float PIDchange[3][2];   //The change from the P, I and D values that will be applied to the roll & pitch; PIDchange[P/I/D][roll/pitch]
+float PIDchange[3][3];   //The change from the P, I and D values that will be applied to the roll, pitch & yaw; PIDchange[P/I/D][roll/pitch/yaw]
 float Isum[2];           //The sum of the difference in angles used to calculate the integral change
-float yawChange;         //The percentage change in motor power to control yaw
 
 //Hardware vars
 const int lightPin = 5;
@@ -342,15 +341,11 @@ void loop(){
 
     //Yaw control
     if (xyzr[3] == 0) {
-      yawChange = imu.rRate[2] * yawGain; //Stabilise yaw rotation
+      PIDchange[2][2] = imu.rRate[2] * yawGain; //Stabilise yaw rotation
     } else {
-      yawChange = xyzr[3] * yawControl; //Joystick control
+      PIDchange[0][2] = xyzr[3] * yawControl; //Joystick control
     }
-    //Apply yaw change
-    motorPower[0] += yawChange;
-    motorPower[3] += yawChange;
-    motorPower[1] -= yawChange;
-    motorPower[2] -= yawChange;
+    applyChange(2, 0,3, 1,2);
 
 
     /* Apply input to hardware */
