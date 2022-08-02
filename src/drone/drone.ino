@@ -1,9 +1,8 @@
-#include <Arduino.h>
-#include <MPU6050_6Axis_MotionApps_V6_12.h>
-#include <Wire.h>
 #include <RF24.h>
 #include <Servo.h>
 #include <SdFat.h>
+
+#include "IMU.h"
 
 /*** * * * DRONE SETTINGS * * * ***/
 //User input
@@ -27,24 +26,12 @@ const float yawGain = 0;        //Yaw differential gain
 RF24 radio(25, 10); //Sets CE and CSN pins of the radio
 byte addresses[][6] = {"C", "D"};
 
-//MPU control/status vars
-MPU6050 mpu;
-uint8_t devStatus;      //Return status after each device operation (0 = success, !0 = error)
-uint8_t fifoBuffer[64]; //FIFO storage buffer
-//MPU orientation/motion vars
-Quaternion q;                     //Quaternion container
-VectorFloat gravity;              //Gravity vector
-float ypr[3];                     //Array containing yaw, pitch and roll
-const float MPUmult = 180 / M_PI; //Constant used to convert from MPU6050 data to degrees
 //Time vars
 unsigned long startTime;            //Start time of flight (in milliseconds)
 unsigned long loopTime[rRateCount]; //Timestamp of last few loops (in milliseconds)
 int loopTimeCounter = 0;            //Index of loopTime which was last used
 int timerIndex;
 unsigned long loopTimings[20];
-//SMA
-float rpSMA[rRateCount][3]; //Simple moving average of roll and pitch
-int SMAcounter = 0;         //Index of rpSMA which was last used
 //Standby
 int standbyStatus = 0; //0: not on standby, 1: starting standby, 2: on standby
 unsigned long standbyStartTime;
@@ -59,11 +46,9 @@ float potPercent = 0;    //Percentage of the controllers potentiometer, used as 
 bool light = false;
 
 //Rotation vars
-float currentAngle[3];   //Current angle of roll and pitch (in degrees)
+IMU imu(rpOffset[0], rpOffset[1]);
 float rpDiff[2] = {0,0}; //Difference in roll & pitch from the wanted angle
 float PIDchange[3][2];   //The change from the P, I and D values that will be applied to the roll & pitch; PIDchange[P/I/D][roll/pitch]
-float rotTime;           //Time (in milliseconds) over which the rotation rate is calculated
-float rRate[3];          //Rotation rate (degrees per millisecond) of roll, pitch and yaw
 float Isum[2];           //The sum of the difference in angles used to calculate the integral change
 float yawChange;         //The percentage change in motor power to control yaw
 
@@ -219,8 +204,6 @@ void ABORT(){ //This is also used to turn off all the motors after landing
 
 void setup(){
   pinMode(lightPin, OUTPUT);
-  Wire.begin();
-  Wire.setClock(400000);
 
   //Set up SD card
   checkSD(sd.begin(SdioConfig(FIFO_SDIO)));
@@ -271,34 +254,11 @@ void setup(){
     delay(200);
   }
 
-  //Set up MPU 6050
-  digitalWrite(lightPin, HIGH);
-  mpu.initialize();
-  devStatus = mpu.dmpInitialize();
-  mpu.setXAccelOffset(-5054);
-  mpu.setYAccelOffset(297);
-  mpu.setZAccelOffset(1024);
-  mpu.setXGyroOffset(122);
-  mpu.setYGyroOffset(-101);
-  mpu.setZGyroOffset(22);
-  
-  if (devStatus == 0) {
-    mpu.setDMPEnabled(true);
-    //Let the MPU run for a bit to allow for values to stabilise
-    for (int i=0; i<1000; i++) {
-      delay(4);
-      if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-      }
-    }
-  } else {
-    logFile.print("MPU6050 error: ");
-    logFile.println(devStatus);
+  //Set up inertial measurement unit
+  if (imu.init()) {
+    logFile.print("IMU error");
     ABORT();
   }
-  digitalWrite(lightPin, LOW);
   
   //Set up communication
   radio.begin();
@@ -316,13 +276,6 @@ void setup(){
     delay(5);
   }
   radio.startListening();
-
-  //Fill rpSMA
-  for (int i=0; i<rRateCount; i++) {
-    rpSMA[i][0] = (-ypr[2] * MPUmult) + rpOffset[0];
-    rpSMA[i][1] = (-ypr[1] * MPUmult) + rpOffset[1];
-    rpSMA[i][2] =   ypr[0] * MPUmult;
-  }
 
   //Startup lights
   delay(100);
@@ -386,26 +339,7 @@ void loop(){
 
 
     /* Get current angle */
-    //Get current angle and acceleration
-    if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
-      mpu.dmpGetQuaternion(&q, fifoBuffer);
-      mpu.dmpGetGravity(&gravity, &q);
-      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    }
-    currentAngle[0] = (-ypr[2] * MPUmult) + rpOffset[0]; //roll
-    currentAngle[1] = (-ypr[1] * MPUmult) + rpOffset[1]; //pitch
-    currentAngle[2] =   ypr[0] * MPUmult;                //yaw
-    //Abort if the drone is flipping, is not needed but is a nice failsafe when testing new features
-    if (abs(currentAngle[0]) > 120 or abs(currentAngle[1]) > 120) {
-      ABORT();
-    }
-    
-    //Update SMA values
-    SMAcounter++;
-    SMAcounter %= rRateCount;
-    for (int i=0; i<3; i++) {
-      rpSMA[SMAcounter][i] = currentAngle[i];
-    }
+    imu.updateAngle();
     
     //Get loop time
     loopTimeCounter++;
@@ -415,11 +349,6 @@ void loop(){
     while (getLoopTime(1) < 2) {
       delayMicroseconds(2);
       loopTime[loopTimeCounter] = micros()-standbyOffset;
-    }
-    //Calculate rotation rate
-    rotTime = getLoopTime(-1);
-    for (int i=0; i<3; i++) {
-      rRate[i] = (rpSMA[SMAcounter][i] - rpSMA[(SMAcounter+1) % rRateCount][i]) / rotTime;
     }
 
 
@@ -437,7 +366,7 @@ void loop(){
     //Calculate the change in motor power per axis
     for (int i=0; i<2; i++) {
       //Get difference between wanted and current angle
-      rpDiff[i] = (-xyzr[i]/maxAngle) - currentAngle[i];
+      rpDiff[i] = (-xyzr[i]/maxAngle) - imu.currentAngle[i];
     
       //Get proportional change
       PIDchange[0][i] = Pgain * rpDiff[i];
@@ -447,7 +376,7 @@ void loop(){
       PIDchange[1][i] = Igain * Isum[i];
       
       //Get derivative change
-      PIDchange[2][i] = Dgain *  rRate[i];
+      PIDchange[2][i] = Dgain * imu.rRate[i];
     }
     
     //Apply the calculated roll and pitch change
@@ -456,7 +385,7 @@ void loop(){
 
     //Yaw control
     if (xyzr[3] == 0) {
-      yawChange = rRate[2] * yawGain; //Stabilise yaw rotation
+      yawChange = imu.rRate[2] * yawGain; //Stabilise yaw rotation
     } else {
       yawChange = xyzr[3] * yawControl; //Joystick control
     }
@@ -480,13 +409,13 @@ void loop(){
     logFile.print("," + String(getLoopTime(1), 1));
     logFile.print(logArray(xyzr, 4));
     logFile.print("," + String(potPercent*100));
-    logFile.print(logArray(currentAngle, 2, 2));
+    logFile.print(logArray(imu.currentAngle, 2, 2));
     logFile.print(logArray(PIDchange[0], 2, 3));
     logFile.print(logArray(PIDchange[1], 2, 3));
     logFile.print(logArray(PIDchange[2], 2, 3));
     logFile.print(logArray(motorPower, 4, 0));
     logFile.print("," + String(radioReceived));
-    logFile.print("," + String(currentAngle[2], 1));
+    logFile.print("," + String(imu.currentAngle[2], 1));
     
     logLoopCounter++;
     if (logLoopCounter == maxLogLoopCounter) {
