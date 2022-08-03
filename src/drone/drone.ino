@@ -1,11 +1,11 @@
-#include <SdFat.h>
-
 #include "DroneRadio.h"
 #include "IMU.h"
+#include "Logger.h"
 #include "MotorController.h"
 
 /*** * * * DRONE SETTINGS * * * ***/
 //Motor settings can be found in MotorController.h
+//Log and SD card settings can be found in Logger.h
 //User input
 const float maxAngle = 127.0/15.0;   //Maximum wanted bank angle available to select by the user
 const float yawControl = 0.0/127.0;  //How much the joystick affects yaw
@@ -23,8 +23,6 @@ const float yawGain = 0;        //Yaw differential gain
 unsigned long startTime;            //Start time of flight (in milliseconds)
 unsigned long loopTime[rRateCount]; //Timestamp of last few loops (in milliseconds)
 int loopTimeCounter = 0;            //Index of loopTime which was last used
-int timerIndex;
-unsigned long loopTimings[20];
 //Standby
 int standbyStatus = 0; //0: not on standby, 1: starting standby, 2: on standby
 unsigned long standbyStartTime;
@@ -46,16 +44,9 @@ float Isum[2];           //The sum of the difference in angles used to calculate
 
 //Hardware vars
 const int lightPin = 5;
-const int chipSelect = SS;
 DroneRadio droneRadio;
 MotorController ESC;
-
-//Log vars
-SdFs sd;
-FsFile logFile;
-const int logFileSize = 32 * 1024 * 1024; //32 million bytes of pre allocated data (used up in around 10 mins)
-const int maxLogLoopCounter = 10;         //How often the log is written to the SD card
-int logLoopCounter = 0;
+Logger logger;
 
 //Functions
 
@@ -74,57 +65,6 @@ float getLoopTime(int Step){ //Return the loop time in microseconds
   return (loopTime[loopTimeCounter] - loopTime[index]) / 1000.0;
 }
 
-String logArray(int *arr, int len){
-  String arrayString = "";
-  for (int i=0; i<len; i++) {
-    arrayString += "," + String(arr[i]);
-  }
-  return arrayString;
-}
-String logArray(float *arr, int len, int decimals){
-  String arrayString = "";
-  for (int i=0; i<len; i++) {
-    arrayString += "," + String(arr[i], decimals);
-  }
-  return arrayString;
-}
-
-void calcTime(){
-  if (timerIndex < 20) {
-    loopTimings[timerIndex] = micros();
-    timerIndex++;
-  }
-}
-
-//This function is to be used along with calcTime to calculate how long each part of the loop takes
-void logLoopTimings(){
-  //Process
-  for(int i=0; i<19; i++) {
-    if (loopTimings[i+1] != 0) {
-      loopTimings[i] = loopTimings[i+1] - loopTimings[i];
-    }
-  }
-  
-  //Log
-  logFile.println(logArray(loopTimings, timerIndex-1));
-  
-  //Reset the variables for the next loop
-  timerIndex = 0;
-  for(int i=1; i<20; i++) {
-    loopTimings[i] = 0;
-  }
-  calcTime();
-}
-
-
-void checkSD(bool condition) {
-  if (!condition) {
-    for (;;) {
-      blink(1500);
-    }
-  }
-}
-
 void standby() {
   if (standbyStatus == 1) {
     standbyStatus = 2;
@@ -133,8 +73,8 @@ void standby() {
     ESC.writeZero();
   
     //Log the drone going into standby
-    logFile.println("\n--- on standby ---\n");
-    logFile.flush();
+    logger.logString("\n--- on standby ---\n");
+    logger.write(true);
 
     standbyStartTime = micros();
   }
@@ -150,10 +90,8 @@ void standby() {
 
 void ABORT(){ //This is also used to turn off all the motors after landing
   ESC.writeZero();
-  
-  logFile.flush();
-  logFile.truncate();
-  logFile.close();
+
+  logger.closeFile();
   
   for (;;){
     ESC.writeZero();
@@ -167,41 +105,33 @@ void setup(){
   pinMode(lightPin, OUTPUT);
 
   //Set up SD card
-  checkSD(sd.begin(SdioConfig(FIFO_SDIO)));
-  if (sd.exists("log.csv")) {
-    sd.remove("log_old.csv");
-    logFile.open("log.csv", O_WRITE);
-    logFile.rename("log_old.csv");
-    logFile.close();
-  }
-  logFile.open("log.csv", O_WRITE | O_CREAT | O_TRUNC);
-  checkSD(logFile.preAllocate(logFileSize));
+  logger.init();
   //Log the settings
-  logFile.println("User input");
-  logFile.print("maxZdiff"); logFile.print(logArray(ESC.maxZdiff, 2, 2));
-  logFile.print(",potMaxDiff,"); logFile.print(ESC.potMaxDiff);
-  logFile.print(",maxAngle,"); logFile.print(127/maxAngle);
-  logFile.print(",yawControl,"); logFile.print(yawControl*127, 2);
-  logFile.println("\nOffsets");
-  logFile.print("motorOffset"); logFile.print(logArray(ESC.offset, 4, 3));
-  logFile.print(",rpOffset"); logFile.print(logArray(rpOffset, 2, 2));
-  logFile.print(",defaultZ,"); logFile.print(ESC.defaultZ);
-  logFile.println("\nPerformance");
-  logFile.print("rRateCount:,"); logFile.print(rRateCount);
-  logFile.print(",Pgain,"); logFile.print(Pgain*1000, 2);
-  logFile.print(",Igain,"); logFile.print(Igain*1000, 4);
-  logFile.print(",Dgain,"); logFile.print(-Dgain, 3);
-  logFile.print(",yawGain,"); logFile.print(yawGain, 2);
-  logFile.println("\nchangeLog,");
-  logFile.println("Time,Loop time,Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,FL,FR,BL,BR,radio,yaw");
-  logFile.flush();
+  logger.logString("User input\n");
+  logger.logSetting("maxZdiff", ESC.maxZdiff, 2, 2, false);
+  logger.logSetting("potMaxDiff", ESC.potMaxDiff);
+  logger.logSetting("maxAngle", 127/maxAngle);
+  logger.logSetting("yawControl", yawControl*127, 2);
+  logger.logString("\nOffsets\n");
+  logger.logSetting("motorOffset", ESC.offset, 4, 3, false);
+  logger.logSetting("rpOffset", rpOffset, 2, 2);
+  logger.logSetting("defaultZ", ESC.defaultZ);
+  logger.logString("\nPerformance\n");
+  logger.logSetting("rRateCount", rRateCount, false);
+  logger.logSetting("Pgain", Pgain*1000, 2);
+  logger.logSetting("Igain", Igain*1000, 4);
+  logger.logSetting("Dgain", -Dgain, 3);
+  logger.logSetting("yawGain", yawGain, 2);
+  logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
+  logger.logString("Time,Loop time,Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,FL,FR,BL,BR,radio,yaw");
+  logger.write();
 
   //Set up motors
   ESC.init();
 
   //Set up inertial measurement unit
   if (imu.init()) {
-    logFile.print("IMU error");
+    logger.logString("IMU error");
     ABORT();
   }
   
@@ -225,8 +155,6 @@ void setup(){
 
 
 void loop(){
-  logLoopTimings();
-
   // Recieve input data
   droneRadio.getInput();
 
@@ -294,22 +222,18 @@ void loop(){
     ESC.write();
   
     /* Log flight info */
-    logFile.print((micros()-startTime-standbyOffset) / 1000);
-    logFile.print("," + String(getLoopTime(1), 1));
-    logFile.print(logArray(xyzr, 4));
-    logFile.print("," + String(potPercent*100));
-    logFile.print(logArray(imu.currentAngle, 2, 2));
-    logFile.print(logArray(PIDchange[0], 2, 3));
-    logFile.print(logArray(PIDchange[1], 2, 3));
-    logFile.print(logArray(PIDchange[2], 2, 3));
-    logFile.print(logArray(ESC.motorPower, 4, 0));
-    logFile.print("," + String(droneRadio.radioReceived));
-    logFile.print("," + String(imu.currentAngle[2], 1));
+    logger.logData((micros()-startTime-standbyOffset) / 1000, false);
+    logger.logData(getLoopTime(1), 1);
+    logger.logArray(xyzr, 4);
+    logger.logData(potPercent*100);
+    logger.logArray(imu.currentAngle, 2, 2);
+    logger.logArray(PIDchange[0], 2, 3);
+    logger.logArray(PIDchange[1], 2, 3);
+    logger.logArray(PIDchange[2], 2, 3);
+    logger.logArray(ESC.motorPower, 4, 0);
+    logger.logData(droneRadio.radioReceived);
+    logger.logData(imu.currentAngle[2], 1);
     
-    logLoopCounter++;
-    if (logLoopCounter == maxLogLoopCounter) {
-      logFile.flush();
-      logLoopCounter = 0;
-    }
+    logger.write();
   }
 }
