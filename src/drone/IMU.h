@@ -16,16 +16,19 @@
 #endif
 
 extern const int lightPin;
-extern const int rRateCount;
 extern float getLoopTime(int);
+
+
+/* Settings */
+const float angleOffset[3] = {8, 1.1, 0}; //IMU angle offset {roll, pitch and yaw}
+const int rRateCount = 20;                //How many loops are used to calculate the rotation rate, minimum 2
+/* Settings */
 
 
 class IMU {
   public:
-    IMU(float rollOffset=0, float pitchOffset=0, float yawOffset=0);
     int init();
     void updateAngle();
-    float angleOffset[3];              //IMU angle offset {roll, pitch and yaw}
     float currentAngle[3] = {0, 0, 0}; //Current angle of roll, pitch and yaw (in degrees)
     float rRate[3] = {0, 0, 0};        //Rotation rate (degrees per millisecond) of roll, pitch and yaw
 

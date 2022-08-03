@@ -1,11 +1,5 @@
 #include "IMU.h"
 
-IMU::IMU(float rollOffset, float pitchOffset, float yawOffset) {
-  angleOffset[0] = rollOffset;
-  angleOffset[1] = pitchOffset;
-  angleOffset[2] = yawOffset;
-}
-
 int IMU::init() {
   #if IMU_TYPE == IMU_MPU6050_DMP
     Wire.begin();

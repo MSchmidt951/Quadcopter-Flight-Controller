@@ -4,15 +4,14 @@
 #include "MotorController.h"
 
 /*** * * * DRONE SETTINGS * * * ***/
-//Motor settings can be found in MotorController.h
+//IMU and sensor settings can be found in IMU.h
 //Log and SD card settings can be found in Logger.h
+//Motor settings can be found in MotorController.h
+
 //User input
 const float maxAngle = 127.0/15.0;   //Maximum wanted bank angle available to select by the user
 const float yawControl = 0.0/127.0;  //How much the joystick affects yaw
-//Offsets
-const float rpOffset[2] = {6, 0};          //Base gyro angle offset
 //Performance
-const int rRateCount = 25;      //How many loops are used to calculate the rotation rate, minimum 2
 const float Pgain = 2.4/1000;   //Proportional gain, percentage difference per ESC at 10 degrees
 const float Igain = .0017/1000; //Integral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
 const float Dgain = -.33;       //Differential gain, helps control the rotation speed
@@ -37,7 +36,7 @@ bool light = false;
 bool standbyButton = false;
 
 //Rotation vars
-IMU imu(rpOffset[0], rpOffset[1]);
+IMU imu;
 float rpDiff[2] = {0,0}; //Difference in roll & pitch from the wanted angle
 float PIDchange[3][3];   //The change from the P, I and D values that will be applied to the roll, pitch & yaw; PIDchange[P/I/D][roll/pitch/yaw]
 float Isum[2];           //The sum of the difference in angles used to calculate the integral change
@@ -114,7 +113,7 @@ void setup(){
   logger.logSetting("yawControl", yawControl*127, 2);
   logger.logString("\nOffsets\n");
   logger.logSetting("motorOffset", ESC.offset, 4, 3, false);
-  logger.logSetting("rpOffset", rpOffset, 2, 2);
+  logger.logSetting("angleOffset", angleOffset, 3, 2);
   logger.logSetting("defaultZ", ESC.defaultZ);
   logger.logString("\nPerformance\n");
   logger.logSetting("rRateCount", rRateCount, false);
