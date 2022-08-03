@@ -217,6 +217,7 @@ void setup(){
   //Get time variables
   for (int i=0; i<rRateCount; i++) {
     loopTime[i] = micros();
+    delayMicroseconds(1);
   }
   //Start the clock
   startTime = micros();
