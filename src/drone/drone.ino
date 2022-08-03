@@ -1,19 +1,16 @@
-#include <Servo.h>
 #include <SdFat.h>
 
 #include "DroneRadio.h"
 #include "IMU.h"
+#include "MotorController.h"
 
 /*** * * * DRONE SETTINGS * * * ***/
+//Motor settings can be found in MotorController.h
 //User input
-const float maxZdiff[2] = {.1, .18}; //Percentage z difference for joystick down & up, respectively
-const float potMaxDiff = .06;        //Max percentage difference of potentiometer
 const float maxAngle = 127.0/15.0;   //Maximum wanted bank angle available to select by the user
 const float yawControl = 0.0/127.0;  //How much the joystick affects yaw
 //Offsets
-const float motorOffset[4] = {0, 0, 0, 0}; //Base percentage difference per motor
 const float rpOffset[2] = {6, 0};          //Base gyro angle offset
-const float defaultZ = .36;                //Default motor percentage
 //Performance
 const int rRateCount = 25;      //How many loops are used to calculate the rotation rate, minimum 2
 const float Pgain = 2.4/1000;   //Proportional gain, percentage difference per ESC at 10 degrees
@@ -51,10 +48,7 @@ float Isum[2];           //The sum of the difference in angles used to calculate
 const int lightPin = 5;
 const int chipSelect = SS;
 DroneRadio droneRadio;
-const int motors[4] = {23, 22, 21, 20}; //FL, FR, BL, BR
-float initialPower;                     //The base motor power percentage at the start of each loop
-float motorPower[4];                    //Percentage; FL, FR, BL, BR
-Servo ESC[4];                           //0-180
+MotorController ESC;
 
 //Log vars
 SdFs sd;
@@ -64,10 +58,6 @@ const int maxLogLoopCounter = 10;         //How often the log is written to the 
 int logLoopCounter = 0;
 
 //Functions
-
-int toInt(float f){
-  return int(f + .5);
-}
 
 void blink(int d){
   digitalWrite(lightPin, HIGH);
@@ -82,18 +72,6 @@ float getLoopTime(int Step){ //Return the loop time in microseconds
     index = rRateCount+index;
   }
   return (loopTime[loopTimeCounter] - loopTime[index]) / 1000.0;
-}
-
-void applyChange(int axis, int pA, int pB, int nA, int nB){
-  float change = PIDchange[0][axis] + PIDchange[1][axis] + PIDchange[2][axis];
-
-  if (abs(change) > .00277) {
-    motorPower[pA] += change;
-    motorPower[pB] += change;
-
-    motorPower[nA] -= change - .00277;
-    motorPower[nB] -= change - .00277;
-  }
 }
 
 String logArray(int *arr, int len){
@@ -141,12 +119,6 @@ void logLoopTimings(){
 
 void checkSD(bool condition) {
   if (!condition) {
-    for (int i=0; i<4; i++){
-      ESC[i].attach(motors[i], 1000, 2000);
-      delay(1);
-      ESC[i].write(0);
-    }
-    
     for (;;) {
       blink(1500);
     }
@@ -158,9 +130,7 @@ void standby() {
     standbyStatus = 2;
     
     //Turn off all motors
-    for (int i=0; i<4; i++) {
-      ESC[i].write(0);
-    }
+    ESC.writeZero();
   
     //Log the drone going into standby
     logFile.println("\n--- on standby ---\n");
@@ -179,18 +149,14 @@ void standby() {
 }
 
 void ABORT(){ //This is also used to turn off all the motors after landing
-  for (int i=0; i<4; i++){
-    ESC[i].write(0);
-  }
+  ESC.writeZero();
   
   logFile.flush();
   logFile.truncate();
   logFile.close();
   
   for (;;){
-    for (int i=0; i<4; i++){
-      ESC[i].write(0);
-    }
+    ESC.writeZero();
     blink(111);
     blink(1234);
   }
@@ -212,14 +178,14 @@ void setup(){
   checkSD(logFile.preAllocate(logFileSize));
   //Log the settings
   logFile.println("User input");
-  logFile.print("maxZdiff"); logFile.print(logArray(maxZdiff, 2, 2));
-  logFile.print(",potMaxDiff,"); logFile.print(potMaxDiff);
+  logFile.print("maxZdiff"); logFile.print(logArray(ESC.maxZdiff, 2, 2));
+  logFile.print(",potMaxDiff,"); logFile.print(ESC.potMaxDiff);
   logFile.print(",maxAngle,"); logFile.print(127/maxAngle);
   logFile.print(",yawControl,"); logFile.print(yawControl*127, 2);
   logFile.println("\nOffsets");
-  logFile.print("motorOffset"); logFile.print(logArray(motorOffset, 4, 3));
+  logFile.print("motorOffset"); logFile.print(logArray(ESC.offset, 4, 3));
   logFile.print(",rpOffset"); logFile.print(logArray(rpOffset, 2, 2));
-  logFile.print(",defaultZ,"); logFile.print(defaultZ);
+  logFile.print(",defaultZ,"); logFile.print(ESC.defaultZ);
   logFile.println("\nPerformance");
   logFile.print("rRateCount:,"); logFile.print(rRateCount);
   logFile.print(",Pgain,"); logFile.print(Pgain*1000, 2);
@@ -231,23 +197,7 @@ void setup(){
   logFile.flush();
 
   //Set up motors
-  digitalWrite(lightPin, HIGH);
-  for (int i=0; i<4; i++){
-    ESC[i].attach(motors[i], 1000, 2000);
-    delay(1);
-    ESC[i].write(0);
-  }
-  delay(4000);
-  digitalWrite(lightPin, LOW);
-  delay(1000);
-  for (int i=0; i<4; i++){
-    digitalWrite(lightPin, HIGH);
-    ESC[i].write(10);
-    delay(500);
-    ESC[i].write(0);
-    digitalWrite(lightPin, LOW);
-    delay(200);
-  }
+  ESC.init();
 
   //Set up inertial measurement unit
   if (imu.init()) {
@@ -308,17 +258,7 @@ void loop(){
     }
 
 
-    /* Set motor speeds */
-    //Set initial motor power
-    if (xyzr[2] < 0) {
-      initialPower = defaultZ + (potPercent*potMaxDiff) + (maxZdiff[0] * xyzr[2]/127);
-    } else {
-      initialPower = defaultZ + (potPercent*potMaxDiff) + (maxZdiff[1] * xyzr[2]/127);
-    }
-    for (int i=0; i<4; i++){
-      motorPower[i] = initialPower;
-    }
-  
+    /* Calculate motor speeds */
     //Calculate the change in motor power per axis
     for (int i=0; i<2; i++) {
       //Get difference between wanted and current angle
@@ -336,8 +276,8 @@ void loop(){
     }
     
     //Apply the calculated roll and pitch change
-    applyChange(0, 0,2, 1,3);
-    applyChange(1, 0,1, 2,3);
+    ESC.addChange(PIDchange, 0, 0,2, 1,3);
+    ESC.addChange(PIDchange, 1, 0,1, 2,3);
 
     //Yaw control
     if (xyzr[3] == 0) {
@@ -345,16 +285,12 @@ void loop(){
     } else {
       PIDchange[0][2] = xyzr[3] * yawControl; //Joystick control
     }
-    applyChange(2, 0,3, 1,2);
+    ESC.addChange(PIDchange, 2, 0,3, 1,2);
 
 
     /* Apply input to hardware */
     digitalWrite(lightPin, light);
-    for (int i=0; i<4; i++){
-      motorPower[i] += motorOffset[i]/100;
-      motorPower[i] = min(max(0, motorPower[i]*1000), 1000); //Limit values to 0 - 1000
-      ESC[i].writeMicroseconds(1000 + toInt(motorPower[i])); //Round motor power and apply it to the ESC
-    }
+    ESC.write();
   
     /* Log flight info */
     logFile.print((micros()-startTime-standbyOffset) / 1000);
@@ -365,7 +301,7 @@ void loop(){
     logFile.print(logArray(PIDchange[0], 2, 3));
     logFile.print(logArray(PIDchange[1], 2, 3));
     logFile.print(logArray(PIDchange[2], 2, 3));
-    logFile.print(logArray(motorPower, 4, 0));
+    logFile.print(logArray(ESC.motorPower, 4, 0));
     logFile.print("," + String(droneRadio.radioReceived));
     logFile.print("," + String(imu.currentAngle[2], 1));
     
