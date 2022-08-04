@@ -27,7 +27,7 @@ class Logger {
     void logArray(int *arr, int len);
     void logArray(float *arr, int len, int decimals);
     void write(bool mustWrite=false);
-    void calcTime(); //rename to something more descriptive?
+    void calcSectionTime(); //Calculates how long a section of the main loop takes
     void closeFile();
 
   private:

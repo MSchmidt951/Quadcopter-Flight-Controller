@@ -108,10 +108,10 @@ void Logger::write(bool mustWrite) {
     logLoopCounter = 0;
   }
 
-  calcTime();
+  calcSectionTime();
 }
 
-void Logger::calcTime() {
+void Logger::calcSectionTime() {
   if (timerIndex < maxLoopTimerSections) {
     loopTimings[timerIndex] = micros();
     timerIndex++;
