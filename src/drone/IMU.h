@@ -29,6 +29,7 @@ class IMU {
   public:
     int init();
     void updateAngle();
+    
     float currentAngle[3] = {0, 0, 0}; //Current angle of roll, pitch and yaw (in degrees)
     float rRate[3] = {0, 0, 0};        //Rotation rate (degrees per millisecond) of roll, pitch and yaw
 

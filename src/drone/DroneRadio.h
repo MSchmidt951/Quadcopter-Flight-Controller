@@ -17,11 +17,12 @@ class DroneRadio {
     void init();
     void getInput();
     void checkSignal();
+    
     int radioReceived = 0; //The number of loops done since the last radio signal
 
   private:
-    RF24 radio{25, 10}; //Sets CE and CSN pins of the radio
-    byte addresses[2][6] = {"C", "D"};
-    char data[7]; //Raw input data
+    RF24 radio{25, 10};                //Sets CE and CSN pins of the radio
+    byte addresses[2][6] = {"C", "D"}; //Addresses of the controller and device (drone)
+    char data[7];                      //Raw input data
 };
 #endif

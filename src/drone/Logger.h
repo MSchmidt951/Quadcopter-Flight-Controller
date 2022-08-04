@@ -10,7 +10,7 @@ extern void blink(int);
 /* Settings */
 const int logFileSize = 32 * 1024 * 1024; //32 million bytes of pre allocated data (used up in around 10 mins)
 const int maxLogLoopCounter = 10;         //How often the log is written to the SD card
-const int maxLoopTimerSections = 10;      //
+const int maxLoopTimerSections = 10;      //The maximum times calcSectionTime can be called per loop
 /* Settings */
 
 
@@ -32,6 +32,7 @@ class Logger {
 
   private:
     void checkSD(bool condition);
+    
     SdFs sd;
     FsFile logFile;
     unsigned long loopTimings[maxLoopTimerSections];
