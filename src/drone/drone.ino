@@ -2,20 +2,13 @@
 #include "IMU.h"
 #include "Logger.h"
 #include "MotorController.h"
+#include "PIDcontroller.h"
 
 /*** * * * DRONE SETTINGS * * * ***/
 //IMU and sensor settings can be found in IMU.h
 //Log and SD card settings can be found in Logger.h
 //Motor settings can be found in MotorController.h
-
-//User input
-const float maxAngle = 127.0/15.0;   //Maximum wanted bank angle available to select by the user
-const float yawControl = 0.0/127.0;  //How much the joystick affects yaw
-//Performance
-const float Pgain = 2.4/1000;   //Proportional gain, percentage difference per ESC at 10 degrees
-const float Igain = .0017/1000; //Integral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
-const float Dgain = -.33;       //Differential gain, helps control the rotation speed
-const float yawGain = 0;        //Yaw differential gain
+//PID settings can be found in PIDcontroller.h
 /*** * * * DRONE SETTINGS * * * ***/
 
 //Time vars
@@ -37,9 +30,7 @@ bool standbyButton = false;
 
 //Rotation vars
 IMU imu;
-float rpDiff[2] = {0,0}; //Difference in roll & pitch from the wanted angle
-float PIDchange[3][3];   //The change from the P, I and D values that will be applied to the roll, pitch & yaw; PIDchange[P/I/D][roll/pitch/yaw]
-float Isum[2];           //The sum of the difference in angles used to calculate the integral change
+PIDcontroller pid;
 
 //Hardware vars
 const int lightPin = 5;
@@ -109,18 +100,18 @@ void setup(){
   logger.logString("User input\n");
   logger.logSetting("maxZdiff", ESC.maxZdiff, 2, 2, false);
   logger.logSetting("potMaxDiff", ESC.potMaxDiff);
-  logger.logSetting("maxAngle", 127/maxAngle);
-  logger.logSetting("yawControl", yawControl*127, 2);
+  logger.logSetting("maxAngle", 127/pid.maxAngle);
+  logger.logSetting("yawControl", pid.yawControl*127, 2);
   logger.logString("\nOffsets\n");
   logger.logSetting("motorOffset", ESC.offset, 4, 3, false);
   logger.logSetting("angleOffset", angleOffset, 3, 2);
   logger.logSetting("defaultZ", ESC.defaultZ);
   logger.logString("\nPerformance\n");
   logger.logSetting("rRateCount", rRateCount, false);
-  logger.logSetting("Pgain", Pgain*1000, 2);
-  logger.logSetting("Igain", Igain*1000, 4);
-  logger.logSetting("Dgain", -Dgain, 3);
-  logger.logSetting("yawGain", yawGain, 2);
+  logger.logSetting("Pgain", pid.Pgain*1000, 2);
+  logger.logSetting("Igain", pid.Igain*1000, 4);
+  logger.logSetting("Dgain", -pid.Dgain, 3);
+  logger.logSetting("yawGain", pid.yawGain, 2);
   logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
   logger.logString("Time,Loop time,Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,FL,FR,BL,BR,radio,yaw");
   logger.write();
@@ -187,33 +178,12 @@ void loop(){
 
 
     /* Calculate motor speeds */
-    //Calculate the change in motor power per axis
-    for (int i=0; i<2; i++) {
-      //Get difference between wanted and current angle
-      rpDiff[i] = (-xyzr[i]/maxAngle) - imu.currentAngle[i];
+    pid.calcPID(imu);
     
-      //Get proportional change
-      PIDchange[0][i] = Pgain * rpDiff[i];
-    
-      //Get integral change
-      Isum[i] += rpDiff[i] * getLoopTime(1);
-      PIDchange[1][i] = Igain * Isum[i];
-      
-      //Get derivative change
-      PIDchange[2][i] = Dgain * imu.rRate[i];
-    }
-    
-    //Apply the calculated roll and pitch change
-    ESC.addChange(PIDchange, 0, 0,2, 1,3);
-    ESC.addChange(PIDchange, 1, 0,1, 2,3);
-
-    //Yaw control
-    if (xyzr[3] == 0) {
-      PIDchange[2][2] = imu.rRate[2] * yawGain; //Stabilise yaw rotation
-    } else {
-      PIDchange[0][2] = xyzr[3] * yawControl; //Joystick control
-    }
-    ESC.addChange(PIDchange, 2, 0,3, 1,2);
+    //Apply the calculated roll, pitch and yaw change
+    ESC.addChange(pid.PIDchange, 0, 0,2, 1,3);
+    ESC.addChange(pid.PIDchange, 1, 0,1, 2,3);
+    ESC.addChange(pid.PIDchange, 2, 0,3, 1,2);
 
 
     /* Apply input to hardware */
@@ -226,9 +196,9 @@ void loop(){
     logger.logArray(xyzr, 4);
     logger.logData(potPercent*100);
     logger.logArray(imu.currentAngle, 2, 2);
-    logger.logArray(PIDchange[0], 2, 3);
-    logger.logArray(PIDchange[1], 2, 3);
-    logger.logArray(PIDchange[2], 2, 3);
+    logger.logArray(pid.PIDchange[0], 2, 3);
+    logger.logArray(pid.PIDchange[1], 2, 3);
+    logger.logArray(pid.PIDchange[2], 2, 3);
     logger.logArray(ESC.motorPower, 4, 0);
     logger.logData(droneRadio.radioReceived);
     logger.logData(imu.currentAngle[2], 1);
