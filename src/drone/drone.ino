@@ -114,7 +114,7 @@ void setup(){
   logger.logSetting("yawGain", pid.yawGain, 2);
   logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
   logger.logString("Time,Loop time,Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,FL,FR,BL,BR,radio,yaw");
-  logger.write();
+  logger.write(true);
 
   //Set up motors
   ESC.init();
@@ -135,7 +135,7 @@ void setup(){
   }
 
   //Get time variables
-  for (int i=0; i<rRateCount; i++) {
+  for (int i=rRateCount-1; i>=0; i--) {
     loopTime[i] = micros();
     delayMicroseconds(1);
   }

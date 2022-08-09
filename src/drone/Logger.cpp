@@ -108,7 +108,9 @@ void Logger::write(bool mustWrite) {
     logLoopCounter = 0;
   }
 
-  calcSectionTime();
+  if (!mustWrite) {
+    calcSectionTime();
+  }
 }
 
 void Logger::calcSectionTime() {

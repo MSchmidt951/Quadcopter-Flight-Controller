@@ -36,7 +36,7 @@ class Logger {
     SdFs sd;
     FsFile logFile;
     unsigned long loopTimings[maxLoopTimerSections];
-    int logLoopCounter = maxLogLoopCounter;
+    int logLoopCounter;
     int timerIndex;
 };
 #endif
