@@ -6,11 +6,14 @@
 #define IMU_MPU6050_DMP 1 //200 Hz max
 
 //Select which IMU setup to use
-#define IMU_TYPE IMU_MPU6050_DMP
+#define IMU_TYPE IMU_MPU6050
 
 
 //Import libraries
-#if IMU_TYPE == IMU_MPU6050_DMP
+#if IMU_TYPE == IMU_MPU6050
+  #include <Wire.h>
+  #include <MPU6050_kriswiner.h> //https://github.com/kriswiner/MPU6050
+#elif IMU_TYPE == IMU_MPU6050_DMP
   #include <Wire.h>
   #include <MPU6050_6Axis_MotionApps612.h>
 #endif
@@ -39,7 +42,23 @@ class IMU {
     float rpSMA[50][3]; //Simple moving average of roll and pitch
 
     //Define variables specific to setups
-    #if IMU_TYPE == IMU_MPU6050_DMP
+    #if IMU_TYPE == IMU_MPU6050
+      MPU6050lib mpu;
+      const int intPin = 41;
+      float aRes; //Resolution of the accelerometer
+      float gRes; //Resolution of the accelerometer
+      int16_t accelData[3];      //Accelerometer sensor output
+      int16_t gyroData[3];       //Gyroscope sensor output
+      float accelVal[3];         //Accelerometer value in g's
+      float gyroVal[3];          //Gyroscope value in degrees per seconds
+      float q[4] = {1, 0, 0, 0}; //Quaternion container
+      //Parameters for MadgwickQuaternionUpdate calculations
+      const float beta = sqrt(.05) * PI * (5.0 / 180.0);
+      const float zeta = sqrt(.75) * PI * (2.0 / 180.0);
+
+      void MadgwickQuaternionUpdate(float *accel, float *gyro);
+      void eulerToQuat(float roll, float pitch, float yaw);
+    #elif IMU_TYPE == IMU_MPU6050_DMP
       //MPU control/status vars
       MPU6050 mpu;
       uint8_t devStatus;      //Return status after each device operation (0 = success, !0 = error)
