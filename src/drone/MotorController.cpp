@@ -15,20 +15,19 @@ void MotorController::init() {
       ESCsignal[i].write(0);
     #endif
   }
-  delay(4000);
+  delay(1400);
   digitalWrite(lightPin, LOW);
 
   //Test spin motors
-  delay(1000);
   for (int i=0; i<4; i++){
+    delay(100);
     digitalWrite(lightPin, HIGH);
     #if ESC_TYPE == PWM
       ESCsignal[i].write(10);
-      delay(500);
+      delay(300);
       ESCsignal[i].write(0);
     #endif
     digitalWrite(lightPin, LOW);
-    delay(200);
   }
 }
 
