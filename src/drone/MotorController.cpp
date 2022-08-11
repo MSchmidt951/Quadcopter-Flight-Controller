@@ -29,6 +29,9 @@ void MotorController::init() {
     #endif
     digitalWrite(lightPin, LOW);
   }
+
+  //Give the motor some time to stop spinning before continuing with the program
+  delay(250);
 }
 
 void MotorController::addChange(float PIDchange[3][3], int axis, int pA, int pB, int nA, int nB) {
