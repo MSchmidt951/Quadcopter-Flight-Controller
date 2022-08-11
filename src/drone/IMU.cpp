@@ -17,23 +17,32 @@ int IMU::init() {
     aRes = mpu.getAres();
     gRes = mpu.getGres();
     
-    //Get the accelerometer data
-    mpu.readAccelData(accelData);
-    for (int i=0; i<3; i++) {
-      accelVal[i] = (float)accelData[i]*aRes;
+    //Get the current angle from an average of 10 readings
+    for (int i=0; i<10; i++) {
+      //Give time for the MPU6050 to update
+      delay(1);
+      //Get the accelerometer data
+      mpu.readAccelData(accelData);
+      for (int j=0; j<3; j++) {
+        accelVal[j] = (float)accelData[j]*aRes;
+      }
+      
+      //Calculate the angle from the accelerometer
+      currentAngle[0] += atan2(accelVal[1], accelVal[2]);
+      currentAngle[1] += atan(-accelVal[0] / sqrt(accelVal[1]*accelVal[1] + accelVal[2]*accelVal[2]));
     }
-    //Calculate the angle from the accelerometer
-    currentAngle[0] = -atan2(accelVal[1], accelVal[2]);
-    currentAngle[1] = atan(-accelVal[0] / sqrt(accelVal[1]*accelVal[1] + accelVal[2]*accelVal[2]));
-    currentAngle[2] = PI;
+    //Get the average from the ten readings
+    currentAngle[0] /= 10;
+    currentAngle[1] /= 10;
+    
     //Set the quaternion to the current angle
-    eulerToQuat(currentAngle[0], currentAngle[1], currentAngle[2]);
+    eulerToQuat(currentAngle[0], currentAngle[1], PI);
     
     //Fill rpSMA
     for (int i=0; i<rRateCount; i++) {
-      rpSMA[i][0] = currentAngle[0]*180/PI;
-      rpSMA[i][1] = currentAngle[1]*180/PI;
-      rpSMA[i][2] = currentAngle[2]*180/PI;
+      rpSMA[i][0] = currentAngle[0] * 180/PI;
+      rpSMA[i][1] = currentAngle[1] * 180/PI;
+      rpSMA[i][2] = 0;
     }
   #elif IMU_TYPE == IMU_MPU6050_DMP
     Wire.begin();
