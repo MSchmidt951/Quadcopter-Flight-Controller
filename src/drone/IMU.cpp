@@ -1,6 +1,7 @@
 #include "IMU.h"
 
 int IMU::init() {
+  digitalWrite(lightPin, HIGH);
   #if IMU_TYPE == IMU_MPU6050
     Wire.begin();
     Wire.setClock(400000);
@@ -53,7 +54,6 @@ int IMU::init() {
     Wire.setClock(400000);
     
     //Set up MPU 6050
-    digitalWrite(lightPin, HIGH);
     mpu.initialize();
     int devStatus = mpu.dmpInitialize();
     mpu.setXAccelOffset(-5054);
@@ -77,7 +77,6 @@ int IMU::init() {
     } else {
       return devStatus;
     }
-    digitalWrite(lightPin, LOW);
     
     //Fill rpSMA
     for (int i=0; i<rRateCount; i++) {
@@ -86,6 +85,8 @@ int IMU::init() {
       rpSMA[i][2] =   ypr[0] * MPUmult;
     }
   #endif
+
+  digitalWrite(lightPin, LOW);
   return 0;
 }
 
