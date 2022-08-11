@@ -30,6 +30,10 @@ int IMU::init() {
       //Calculate the angle from the accelerometer
       currentAngle[0] += atan2(accelVal[1], accelVal[2]);
       currentAngle[1] += atan(-accelVal[0] / sqrt(accelVal[1]*accelVal[1] + accelVal[2]*accelVal[2]));
+      
+      //Get the initial value for the kalman filter
+      rollKalman.updateEstimate((-currentAngle[0] * 180/PI) / (i+1));
+      pitchKalman.updateEstimate((currentAngle[1] * 180/PI) / (i+1));
     }
     //Get the average from the ten readings
     currentAngle[0] /= 10;
@@ -110,6 +114,10 @@ void IMU::updateAngle() {
     for (int i=0; i<3; i++) {
       currentAngle[i] *= 180 / PI;
     }
+
+    //Apply kalman filter to roll and pitch
+    currentAngle[0] = rollKalman.updateEstimate(currentAngle[0]);
+    currentAngle[1] = pitchKalman.updateEstimate(currentAngle[1]);
 
     //Update SMA values
     SMAcounter++;

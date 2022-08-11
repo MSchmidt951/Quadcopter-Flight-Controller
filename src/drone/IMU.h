@@ -13,6 +13,7 @@
 #if IMU_TYPE == IMU_MPU6050
   #include <Wire.h>
   #include <MPU6050_kriswiner.h> //https://github.com/kriswiner/MPU6050
+  #include <SimpleKalmanFilter.h>
 #elif IMU_TYPE == IMU_MPU6050_DMP
   #include <Wire.h>
   #include <MPU6050_6Axis_MotionApps612.h>
@@ -51,6 +52,8 @@ class IMU {
       int16_t gyroData[3];       //Gyroscope sensor output
       float accelVal[3];         //Accelerometer value in g's
       float gyroVal[3];          //Gyroscope value in degrees per seconds
+      SimpleKalmanFilter rollKalman{.5, 1, 0.5};
+      SimpleKalmanFilter pitchKalman{.5, 1, 0.5};
       float q[4] = {1, 0, 0, 0}; //Quaternion container
       //Parameters for MadgwickQuaternionUpdate calculations
       const float beta = sqrt(.05) * PI * (5.0 / 180.0);
