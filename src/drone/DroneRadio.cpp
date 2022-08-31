@@ -19,10 +19,9 @@ void DroneRadio::init() {
 }
 
 void DroneRadio::getInput() {
-  radioReceived++;
   if (radio.available()) {
     //Lower the counter for loss of connection after receiving radio
-    radioReceived = max(radioReceived-25, 0);
+    radioReceived = true;
     //Get data from controller
     while (radio.available()) {
       radio.read(&data, sizeof(char[7]));
@@ -49,9 +48,27 @@ void DroneRadio::getInput() {
   }
 }
 
-void DroneRadio::checkSignal() {
-  //Connection is good unless it is lost for 450 cycles (nominally just under a second)
-  if (radioReceived > 450) {
+void DroneRadio::checkSignal(float loopTime, unsigned long currentTime) {
+  //On the first loop set lastRadioTime to the current time to avoid a large spike
+  if (lastRadioTime == 0) {
+    lastRadioTime = currentTime;
+  }
+
+  //Add the loop time in microseconds to the timer
+  timer += (int)loopTime * 1000;
+
+  if (radioReceived) {
+    //No penalty if delay less than maximum
+    if (currentTime - lastRadioTime <= maxRadioDelay) {
+      timer = max(timer-maxRadioDelay, 0);
+    }
+
+    lastRadioTime = currentTime;
+    radioReceived = false;
+  }
+
+  //Abort after one second of loss of communication
+  if (timer + (currentTime - lastRadioTime) >= 1000000) {
     ABORT();
   }
 }

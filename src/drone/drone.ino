@@ -69,7 +69,7 @@ void standby() {
     standbyStartTime = micros();
   }
 
-  droneRadio.radioReceived = 0;
+  droneRadio.timer = 0;
   //Blink lights
   if (millis()-lightChangeTime > 750) {
     lightChangeTime = millis();
@@ -160,7 +160,7 @@ void loop(){
     standby();
   } else {
     //Check radio signal
-    droneRadio.checkSignal();
+    droneRadio.checkSignal(getLoopTime(1), loopTime[loopTimeCounter]);
 
 
     /* Get current angle */
@@ -200,7 +200,7 @@ void loop(){
     logger.logArray(pid.PIDchange[1], 2, 3);
     logger.logArray(pid.PIDchange[2], 2, 3);
     logger.logArray(ESC.motorPower, 4, 0);
-    logger.logData(droneRadio.radioReceived);
+    logger.logData(droneRadio.timer/1000);
     logger.logData(imu.currentAngle[2], 1);
     
     logger.write();
