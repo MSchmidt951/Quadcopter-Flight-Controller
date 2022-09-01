@@ -48,14 +48,14 @@ void DroneRadio::getInput() {
   }
 }
 
-void DroneRadio::checkSignal(float loopTime, unsigned long currentTime) {
+void DroneRadio::checkSignal(unsigned long loopTime, unsigned long currentTime) {
   //On the first loop set lastRadioTime to the current time to avoid a large spike
   if (lastRadioTime == 0) {
     lastRadioTime = currentTime;
   }
 
   //Add the loop time in microseconds to the timer
-  timer += (int)loopTime * 1000;
+  timer += loopTime;
 
   if (radioReceived) {
     //No penalty if delay less than maximum

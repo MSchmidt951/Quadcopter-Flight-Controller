@@ -42,13 +42,6 @@ int IMU::init() {
     
     //Set the quaternion to the current angle
     eulerToQuat(currentAngle[0], currentAngle[1], PI);
-    
-    //Fill rpSMA
-    for (int i=0; i<rRateCount; i++) {
-      rpSMA[i][0] = currentAngle[0] * 180/PI;
-      rpSMA[i][1] = currentAngle[1] * 180/PI;
-      rpSMA[i][2] = 0;
-    }
   #elif IMU_TYPE == IMU_MPU6050_DMP
     Wire.begin();
     Wire.setClock(400000);
@@ -76,13 +69,6 @@ int IMU::init() {
       }
     } else {
       return devStatus;
-    }
-    
-    //Fill rpSMA
-    for (int i=0; i<rRateCount; i++) {
-      rpSMA[i][0] = (-ypr[2] * MPUmult) + angleOffset[0];
-      rpSMA[i][1] = (-ypr[1] * MPUmult) + angleOffset[1];
-      rpSMA[i][2] =   ypr[0] * MPUmult;
     }
   #endif
 
@@ -120,17 +106,9 @@ void IMU::updateAngle() {
     currentAngle[0] = rollKalman.updateEstimate(currentAngle[0]);
     currentAngle[1] = pitchKalman.updateEstimate(currentAngle[1]);
 
-    //Update SMA values
-    SMAcounter++;
-    SMAcounter %= rRateCount;
+    //Get rotation rate
     for (int i=0; i<3; i++) {
-      rpSMA[SMAcounter][i] = currentAngle[i];
-    }
-
-    //Calculate rotation rate
-    rotTime = getLoopTime(-1);
-    for (int i=0; i<3; i++) {
-      rRate[i] = (rpSMA[SMAcounter][i] - rpSMA[(SMAcounter+1) % rRateCount][i]) / rotTime;
+      rRate[i] = gyroVal[i];
     }
   #elif IMU_TYPE == IMU_MPU6050_DMP
     //Get current angle and acceleration
@@ -138,22 +116,15 @@ void IMU::updateAngle() {
       mpu.dmpGetQuaternion(&q, fifoBuffer);
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+      mpu.dmpGetGyro(gyroData, fifoBuffer);
     }
     currentAngle[0] = (-ypr[2] * MPUmult) + angleOffset[0]; //roll
     currentAngle[1] = (-ypr[1] * MPUmult) + angleOffset[1]; //pitch
     currentAngle[2] = ( ypr[0] * MPUmult) + angleOffset[2]; //yaw
     
-    //Update SMA values
-    SMAcounter++;
-    SMAcounter %= rRateCount;
+    //Get rotation rate
     for (int i=0; i<3; i++) {
-      rpSMA[SMAcounter][i] = currentAngle[i];
-    }
-  
-    //Calculate rotation rate
-    rotTime = getLoopTime(-1);
-    for (int i=0; i<3; i++) {
-      rRate[i] = (rpSMA[SMAcounter][i] - rpSMA[(SMAcounter+1) % rRateCount][i]) / rotTime;
+      rRate[i] = gyroData[i] * 2000.0/32768.0;;
     }
   #endif
 }
@@ -229,9 +200,9 @@ void IMU::updateAngle() {
     gerrz = _2q1 * hatDot4 - _2q2 * hatDot3 + _2q3 * hatDot2 - _2q4 * hatDot1;
 
     //Compute and remove gyroscope biases
-    gbiasx += gerrx * getLoopTime(1)/1000 * zeta;
-    gbiasy += gerry * getLoopTime(1)/1000 * zeta;
-    gbiasz += gerrz * getLoopTime(1)/1000 * zeta;
+    gbiasx += gerrx * loopTime()/1000 * zeta;
+    gbiasy += gerry * loopTime()/1000 * zeta;
+    gbiasz += gerrz * loopTime()/1000 * zeta;
     gyrox -= gbiasx;
     gyroy -= gbiasy;
     gyroz -= gbiasz;
@@ -243,10 +214,10 @@ void IMU::updateAngle() {
     qDot4 =  _halfq1 * gyroz + _halfq2 * gyroy - _halfq3 * gyrox;
 
     //Compute then integrate estimated quaternion derivative
-    q1 += (qDot1 -(beta * hatDot1)) * getLoopTime(1)/1000;
-    q2 += (qDot2 -(beta * hatDot2)) * getLoopTime(1)/1000;
-    q3 += (qDot3 -(beta * hatDot3)) * getLoopTime(1)/1000;
-    q4 += (qDot4 -(beta * hatDot4)) * getLoopTime(1)/1000;
+    q1 += (qDot1 -(beta * hatDot1)) * loopTime()/1000;
+    q2 += (qDot2 -(beta * hatDot2)) * loopTime()/1000;
+    q3 += (qDot3 -(beta * hatDot3)) * loopTime()/1000;
+    q4 += (qDot4 -(beta * hatDot4)) * loopTime()/1000;
 
     //Normalize the quaternion
     norm = sqrt(q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4);    //normalise quaternion

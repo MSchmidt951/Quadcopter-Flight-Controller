@@ -20,12 +20,11 @@
 #endif
 
 extern const int lightPin;
-extern float getLoopTime(int);
+extern float loopTime();
 
 
 /* Settings */
 const float angleOffset[3] = {8, 1.1, 0}; //IMU angle offset {roll, pitch and yaw}
-const int rRateCount = 20;                //How many loops are used to calculate the rotation rate, minimum 2
 /* Settings */
 
 
@@ -39,8 +38,6 @@ class IMU {
 
   private:
     float rotTime = 1;  //Time (in milliseconds) over which the rotation rate is calculated
-    int SMAcounter = 0; //Index of rpSMA which was last used
-    float rpSMA[50][3]; //Simple moving average of roll and pitch
 
     //Define variables specific to setups
     #if IMU_TYPE == IMU_MPU6050
@@ -71,6 +68,7 @@ class IMU {
       VectorFloat gravity;              //Gravity vector
       float ypr[3];                     //Array containing yaw, pitch and roll
       const float MPUmult = 180 / M_PI; //Constant used to convert from MPU6050 data to degrees
+      int16_t gyroData[3];              //Gyroscope sensor output
     #endif
 };
 #endif

@@ -12,9 +12,9 @@
 /*** * * * DRONE SETTINGS * * * ***/
 
 //Time vars
-unsigned long startTime;            //Start time of flight (in milliseconds)
-unsigned long loopTime[rRateCount]; //Timestamp of last few loops (in milliseconds)
-int loopTimeCounter = 0;            //Index of loopTime which was last used
+unsigned long startTime;         //Start time of flight (in milliseconds)
+unsigned long loopTimestamp;     //Timestamp of the current loop
+unsigned long lastLoopTimestamp; //Timestamp of last loop
 //Standby
 int standbyStatus = 0; //0: not on standby, 1: starting standby, 2: on standby
 unsigned long standbyStartTime;
@@ -47,12 +47,13 @@ void blink(int d){
   delay(d);
 }
 
-float getLoopTime(int Step){ //Return the loop time in microseconds
-  int index = (loopTimeCounter-Step) % rRateCount;
-  if (index < 0){
-    index = rRateCount+index;
-  }
-  return (loopTime[loopTimeCounter] - loopTime[index]) / 1000.0;
+//Return the loop time in milliseconds
+float loopTime(){
+  return (loopTimestamp - lastLoopTimestamp) / 1000.0;
+}
+//Return the loop time in microseconds
+unsigned long loopTimeMicro(){
+  return loopTimestamp - lastLoopTimestamp;
 }
 
 void standby() {
@@ -107,7 +108,6 @@ void setup(){
   logger.logSetting("angleOffset", angleOffset, 3, 2);
   logger.logSetting("defaultZ", ESC.defaultZ);
   logger.logString("\nPerformance\n");
-  logger.logSetting("rRateCount", rRateCount, false);
   logger.logSetting("Pgain", pid.Pgain*1000, 2);
   logger.logSetting("Igain", pid.Igain*1000, 4);
   logger.logSetting("Dgain", -pid.Dgain, 3);
@@ -134,13 +134,9 @@ void setup(){
     blink(100);
   }
 
-  //Get time variables
-  for (int i=rRateCount-1; i>=0; i--) {
-    loopTime[i] = micros();
-    delayMicroseconds(1);
-  }
   //Start the clock
   startTime = micros();
+  loopTimestamp = startTime;
 }
 
 
@@ -160,20 +156,19 @@ void loop(){
     standby();
   } else {
     //Check radio signal
-    droneRadio.checkSignal(getLoopTime(1), loopTime[loopTimeCounter]);
+    droneRadio.checkSignal(loopTimeMicro(), loopTimestamp);
 
 
     /* Get current angle */
     imu.updateAngle();
     
     //Get loop time
-    loopTimeCounter++;
-    loopTimeCounter %= rRateCount;
-    loopTime[loopTimeCounter] = micros()-standbyOffset;
-    //Make sure the loop is at least 2 milliseconds long
-    while (getLoopTime(1) < 2) {
-      delayMicroseconds(2);
-      loopTime[loopTimeCounter] = micros()-standbyOffset;
+    lastLoopTimestamp = loopTimestamp;
+    loopTimestamp = micros()-standbyOffset;
+    //Make sure the loop is at least 250 microseconds long
+    while (loopTimeMicro() < 250) {
+      delayMicroseconds(1);
+      loopTimestamp = micros()-standbyOffset;
     }
 
 
@@ -192,7 +187,7 @@ void loop(){
   
     /* Log flight info */
     logger.logData((micros()-startTime-standbyOffset) / 1000, false);
-    logger.logData(getLoopTime(1), 1);
+    logger.logData(loopTime(), 1);
     logger.logArray(xyzr, 4);
     logger.logData(potPercent*100);
     logger.logArray(imu.currentAngle, 2, 2);

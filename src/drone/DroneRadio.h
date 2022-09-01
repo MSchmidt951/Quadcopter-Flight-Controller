@@ -16,7 +16,7 @@ class DroneRadio {
   public:
     void init();
     void getInput();
-    void checkSignal(float loopTime, unsigned long currentTime);
+    void checkSignal(unsigned long loopTime, unsigned long currentTime);
     
     int timer; //Keeps track of loss of communication
 

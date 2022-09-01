@@ -10,7 +10,7 @@ void PIDcontroller::calcPID(IMU imu) {
     PIDchange[0][i] = Pgain * rpDiff[i];
 
     //Get integral change
-    Isum[i] += rpDiff[i] * getLoopTime(1);
+    Isum[i] += rpDiff[i] * loopTime();
     PIDchange[1][i] = Igain * Isum[i];
 
     //Get derivative change
