@@ -7,20 +7,20 @@ void PIDcontroller::calcPID(IMU imu) {
     rpDiff[i] = (-xyzr[i]/maxAngle) - imu.currentAngle[i];
 
     //Get proportional change
-    PIDchange[0][i] = Pgain * rpDiff[i];
+    PIDchange[0][i] = rpDiff[i] * Pgain[i]/1000.0;
 
     //Get integral change
     Isum[i] += rpDiff[i] * loopTime();
-    PIDchange[1][i] = Igain * Isum[i];
+    PIDchange[1][i] = Isum[i] * Igain[i]/1000.0;
 
     //Get derivative change
-    PIDchange[2][i] = Dgain * imu.rRate[i];
+    PIDchange[2][i] = imu.rRate[i] * -Dgain[i];
   }
 
   //Yaw control
   if (xyzr[3] == 0) {
-    PIDchange[2][2] = imu.rRate[2] * yawGain; //Stabilise yaw rotation
+    PIDchange[2][2] = imu.rRate[2] * Dgain[2]; //Stabilise yaw rotation
   } else {
-    PIDchange[0][2] = xyzr[3] * yawControl; //Joystick control
+    PIDchange[0][2] = xyzr[3] * Pgain[2]; //Joystick control
   }
 }

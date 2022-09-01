@@ -15,12 +15,10 @@ class PIDcontroller {
     /* Settings */
     //User input
     const float maxAngle = 127.0/15.0;   //Maximum wanted bank angle available to select by the user
-    const float yawControl = 0.0/127.0;  //How much the joystick affects yaw
     //Performance
-    const float Pgain = 2.0/1000;   //Proportional gain, percentage difference per ESC at 10 degrees
-    const float Igain = .0000/1000; //Integral gain, changes motor performance over time, devided by 1000 due to converting Isum to seconds
-    const float Dgain = -.33;       //Differential gain, helps control the rotation speed
-    const float yawGain = 0;        //Yaw differential gain
+    const float Pgain[3] = {2.0, 2.0, 0};     //Proportional gain for roll, pitch & yaw, percentage difference per ESC at 10 degrees
+    const float Igain[3] = {.0000, .0000, 0}; //Integral gain for roll, pitch & yaw, changes motor performance over time, devided by 1000 due to converting Isum to seconds
+    const float Dgain[3] = {.33, .33, 0};     //Differential gain for roll, pitch & yaw, helps control the rotation speed
     /* Settings */
 
   private:
