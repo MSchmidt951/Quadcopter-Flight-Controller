@@ -37,6 +37,8 @@ class MotorController {
     /* Settings */
 
   private:
+    void writeToMotor(int index, int value); //Write to a motor with a certain value (0 - 1000)
+
     const int motors[4] = {23, 22, 21, 20}; //FL, FR, BL, BR
     float initialPower;                     //The base motor power percentage at the start of each loop
     float dynamicChange[4];                 //This is the percentage change for example from the PID controller

@@ -12,7 +12,7 @@ void MotorController::init() {
     #if ESC_TYPE == PWM
       ESCsignal[i].attach(motors[i], 1000, 2000);
       delay(1);
-      ESCsignal[i].write(0);
+      writeToMotor(i, 0);
     #endif
   }
   delay(1400);
@@ -22,11 +22,9 @@ void MotorController::init() {
   for (int i=0; i<4; i++){
     delay(100);
     digitalWrite(lightPin, HIGH);
-    #if ESC_TYPE == PWM
-      ESCsignal[i].write(10);
-      delay(300);
-      ESCsignal[i].write(0);
-    #endif
+    writeToMotor(i, 55);
+    delay(300);
+    writeToMotor(i, 0);
     digitalWrite(lightPin, LOW);
   }
 
@@ -61,9 +59,8 @@ void MotorController::write() {
     motorPower[i] += offset[i]/100;
     motorPower[i] = min(max(0, motorPower[i]*1000), 1000); //Limit values to 0 - 1000
 
-    #if ESC_TYPE == PWM
-      ESCsignal[i].writeMicroseconds(1000 + toInt(motorPower[i])); //Round motor power and apply it to the ESC
-    #endif
+    //Round motor power and apply it to the ESC
+    writeToMotor(i, toInt(motorPower[i]));
 
     dynamicChange[i] = 0;
   }
@@ -71,8 +68,12 @@ void MotorController::write() {
 
 void MotorController::writeZero() {
   for (int i=0; i<4; i++){
-    #if ESC_TYPE == PWM
-      ESCsignal[i].write(0);
-    #endif
+    writeToMotor(i, 0);
   }
+}
+
+void MotorController::writeToMotor(int index, int value) {
+  #if ESC_TYPE == PWM
+    ESCsignal[index].writeMicroseconds(1000 + value);
+  #endif
 }
