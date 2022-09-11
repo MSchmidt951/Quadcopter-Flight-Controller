@@ -2,7 +2,7 @@
 #define __DroneRadio_H__
 
 //Import libraries
-#include <RF24Teensy.h>
+#include <RF24.h>
 
 extern int xyzr[4];
 extern float potPercent;
