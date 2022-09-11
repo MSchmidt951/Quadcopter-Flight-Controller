@@ -10,6 +10,16 @@ void Logger::init(){
   }
   logFile.open("log.csv", O_WRITE | O_CREAT | O_TRUNC);
   checkSD(logFile.preAllocate(logFileSize));
+
+  //Get settings file
+  if (sd.exists("settings.json")) {
+    FsFile settingsFile;
+    settingsFile.open("settings.json");
+    if (deserializeJson(sdSettings, settingsFile)) {
+      logString("JSON ERROR ");
+    }
+    settingsFile.close();
+  }
 }
 
 void Logger::checkSD(bool condition) {

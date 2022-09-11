@@ -1,5 +1,15 @@
 #include "PIDcontroller.h"
 
+void PIDcontroller::init(Logger &logger) {
+  //Load settings from the SD card
+  logger.loadSetting("maxAngle", maxAngle);
+  logger.loadSetting("Pgain", Pgain, 3);
+  logger.loadSetting("Igain", Igain, 3);
+  logger.loadSetting("Dgain", Dgain, 3);
+
+  maxAngle = 127.0/maxAngle;
+}
+
 void PIDcontroller::calcPID(IMU imu) {
   //Calculate the change in motor power per axis
   for (int i=0; i<2; i++) {

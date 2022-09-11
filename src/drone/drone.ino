@@ -97,6 +97,10 @@ void setup(){
 
   //Set up SD card
   logger.init();
+
+  //Set up PID controller
+  pid.init(logger);
+
   //Log the settings
   logger.logString("User input\n");
   logger.logSetting("maxZdiff", ESC.maxZdiff, 2, 2, false);

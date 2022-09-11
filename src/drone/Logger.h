@@ -3,6 +3,7 @@
 
 //Import libraries
 #include <SdFat.h>
+#include <ArduinoJson.h>
 
 extern void blink(int);
 
@@ -30,6 +31,19 @@ class Logger {
     void calcSectionTime(); //Calculates how long a section of the main loop takes
     void closeFile();
 
+    template <typename T> void loadSetting(String name, T var){
+      if (sdSettings.containsKey(name)) {
+        var = sdSettings[name];
+      }
+    }
+    template <typename T> void loadSetting(String name, T *var, int len){
+      if (sdSettings.containsKey(name)) {
+        for (int i; i<len; i++) {
+          var[i] = sdSettings[name][i];
+        }
+      }
+    }
+
   private:
     void checkSD(bool condition);
     
@@ -38,5 +52,6 @@ class Logger {
     unsigned long loopTimings[maxLoopTimerSections];
     int logLoopCounter;
     int timerIndex;
+    StaticJsonDocument<512> sdSettings;
 };
 #endif
