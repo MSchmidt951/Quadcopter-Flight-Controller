@@ -2,6 +2,7 @@
 #define __IMU_H__
 
 //Different types of sensors/libraries defined here
+#define NONE -1
 #define IMU_MPU6050 0
 #define IMU_MPU6050_DMP 1 //200 Hz max
 
@@ -37,8 +38,6 @@ class IMU {
     float rRate[3] = {0, 0, 0};        //Rotation rate (degrees per millisecond) of roll, pitch and yaw
 
   private:
-    float rotTime = 1;  //Time (in milliseconds) over which the rotation rate is calculated
-
     //Define variables specific to setups
     #if IMU_TYPE == IMU_MPU6050
       MPU6050lib mpu;

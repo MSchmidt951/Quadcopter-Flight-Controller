@@ -1,3 +1,6 @@
+#if IMU_TYPE == NONE
+  #include "Arduino.h"
+#endif
 #include "IMU.h"
 
 int IMU::init() {
@@ -125,6 +128,11 @@ void IMU::updateAngle() {
     //Get rotation rate
     for (int i=0; i<3; i++) {
       rRate[i] = gyroData[i] * 2000.0/32768.0;;
+    }
+  #elif IMU_TYPE == NONE
+    for (int i=0; i<3; i++) {
+      rRate[i] = 0;
+      currentAngle[i] = 0;
     }
   #endif
 }
