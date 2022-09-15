@@ -65,7 +65,6 @@ void standby() {
   
     //Log the drone going into standby
     logger.logString("\n--- on standby ---\n");
-    logger.write(true);
 
     standbyStartTime = micros();
   }
@@ -111,12 +110,11 @@ void setup(){
   logger.logSetting("angleOffset", angleOffset, 3, 2);
   logger.logSetting("defaultZ", ESC.defaultZ);
   logger.logString("\nPerformance\n");
-  logger.logSetting("Pgain", pid.Pgain, 3, 2);
+  logger.logSetting("Pgain", pid.Pgain, 3, 2, false);
   logger.logSetting("Igain", pid.Igain, 3, 4);
   logger.logSetting("Dgain", pid.Dgain, 3, 3);
   logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
   logger.logString("Time,Loop time,Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,FL,FR,BL,BR,radio,yaw");
-  logger.write(true);
 
   //Set up motors
   ESC.init();
@@ -139,6 +137,7 @@ void setup(){
   //Start the clock
   startTime = micros();
   loopTimestamp = startTime;
+  lastLoopTimestamp = startTime;
 }
 
 
@@ -186,20 +185,24 @@ void loop(){
     /* Apply input to hardware */
     digitalWrite(lightPin, light);
     ESC.write();
-  
+
     /* Log flight info */
-    logger.logData((micros()-startTime-standbyOffset) / 1000, false);
-    logger.logData(loopTime(), 1);
-    logger.logArray(xyzr, 4);
-    logger.logData(potPercent*100);
-    logger.logArray(imu.currentAngle, 2, 2);
-    logger.logArray(pid.PIDchange[0], 2, 3);
-    logger.logArray(pid.PIDchange[1], 2, 3);
-    logger.logArray(pid.PIDchange[2], 2, 3);
-    logger.logArray(ESC.motorPower, 4, 0);
-    logger.logData(droneRadio.timer/1000);
-    logger.logData(imu.currentAngle[2], 1);
-    
+    logger.currentLog.time = micros()-startTime-standbyOffset;
+    logger.currentLog.rollInput = xyzr[0];
+    logger.currentLog.pitchInput = xyzr[1];
+    logger.currentLog.verticalInput = xyzr[2];
+    logger.currentLog.pot = potPercent;
+    logger.currentLog.roll = imu.currentAngle[0];
+    logger.currentLog.pitch = imu.currentAngle[1];
+    logger.currentLog.Pp = pid.PIDchange[0][1] * 1000;
+    logger.currentLog.Pr = pid.PIDchange[0][0] * 1000;
+    logger.currentLog.Ip = pid.PIDchange[1][1] * 1000;
+    logger.currentLog.Ir = pid.PIDchange[1][0] * 1000;
+    logger.currentLog.Dp = pid.PIDchange[2][1] * 1000;
+    logger.currentLog.Dr = pid.PIDchange[2][0] * 1000;
+    logger.currentLog.radio = droneRadio.timer/1000;
+    logger.currentLog.yaw = imu.currentAngle[2];
+
     logger.write();
   }
 }

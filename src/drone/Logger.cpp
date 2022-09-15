@@ -8,8 +8,10 @@ void Logger::init(){
     logFile.rename("log_old.csv");
     logFile.close();
   }
-  logFile.open("log.csv", O_WRITE | O_CREAT | O_TRUNC);
-  checkSD(logFile.preAllocate(logFileSize));
+
+  sd.remove("log.bin");
+  logFileBin.open("log.bin", O_WRITE | O_CREAT | O_TRUNC);
+  checkSD(logFileBin.preAllocate(logFileSize));
 
   //Get settings file
   if (sd.exists("settings.json")) {
@@ -44,15 +46,7 @@ void Logger::logSetting(String name, float data, int decimals, bool seperator) {
   logString(name + "," + String(data, decimals));
 }
 
-void Logger::logSetting(String name, int *arr, int len, bool seperator) {
-  if (seperator) {
-    logString(",");
-  }
-  logString(name);
-  logArray(arr, len);
-}
-
-void Logger::logSetting(String name, float *arr, int len, int decimals, bool seperator) {
+void Logger::logSetting(String name, const float *arr, int len, int decimals, bool seperator) {
   if (seperator) {
     logString(",");
   }
@@ -60,33 +54,7 @@ void Logger::logSetting(String name, float *arr, int len, int decimals, bool sep
   logArray(arr, len, decimals);
 }
 
-void Logger::logString(String s) {
-  logFile.print(s);
-}
-
-void Logger::logData(int data, bool seperator) {
-  if (seperator) {
-    logString(",");
-  }
-  logFile.print(data);
-}
-
-void Logger::logData(float data, int decimals, bool seperator) {
-  if (seperator) {
-    logString(",");
-  }
-  logFile.print(data);
-}
-
-void Logger::logArray(int *arr, int len) {
-  String arrayString = "";
-  for (int i=0; i<len; i++) {
-    arrayString += "," + String(arr[i]);
-  }
-  logString(arrayString);
-}
-
-void Logger::logArray(float *arr, int len, int decimals) {
+void Logger::logArray(const float *arr, int len, int decimals) {
   String arrayString = "";
   for (int i=0; i<len; i++) {
     arrayString += "," + String(arr[i], decimals);
@@ -94,33 +62,19 @@ void Logger::logArray(float *arr, int len, int decimals) {
   logString(arrayString);
 }
 
-void Logger::write(bool mustWrite) {
-  //Process how long each section of the loop takes
-  for(int i=0; i<maxLoopTimerSections-1; i++) {
-    if (loopTimings[i+1] != 0) {
-      loopTimings[i] = loopTimings[i+1] - loopTimings[i];
-    }
-  }
-  
-  //Log how long each section of the loop takes
-  logArray(loopTimings, timerIndex-1);
-  
-  //Reset the variables for the next loop
-  timerIndex = 0;
-  for(int i=1; i<maxLoopTimerSections; i++) {
-    loopTimings[i] = 0;
-  }
+void Logger::logString(String s) {
+  logFile.open("log.csv", O_CREAT | O_WRITE | O_APPEND);
+  logFile.print(s);
+  logFile.close();
+}
 
-  logString("\n");
-  logLoopCounter++;
-  if (logLoopCounter == maxLogLoopCounter or mustWrite) {
-    logFile.flush();
-    logLoopCounter = 0;
-  }
+void Logger::write() {
+  //Write to log file
+  currentLog.getBinary(buf);
+  logFileBin.write(&buf, sizeof(logStruct));
 
-  if (!mustWrite) {
-    calcSectionTime();
-  }
+  //Store how long each section of the main loop takes
+  storeSectionTime();
 }
 
 void Logger::calcSectionTime() {
@@ -130,8 +84,50 @@ void Logger::calcSectionTime() {
   }
 }
 
+void Logger::storeSectionTime() {
+  //Process how long each section of the loop takes
+  for(int i=0; i<maxLoopTimerSections-1; i++) {
+    if (loopTimings[i+1] != 0) {
+      loopTimings[i] = loopTimings[i+1] - loopTimings[i];
+    }
+  }
+
+  //Log how long each section of the loop takes
+  //TODO - log loopTimings
+
+  //Reset the variables for the next loop
+  timerIndex = 0;
+  for(int i=1; i<maxLoopTimerSections; i++) {
+    loopTimings[i] = 0;
+  }
+
+  calcSectionTime();
+}
+
 void Logger::closeFile() {
-  logFile.flush();
-  logFile.truncate();
-  logFile.close();
+  binToStr();
+  logFileBin.flush();
+  logFileBin.truncate();
+  logFileBin.close();
+}
+
+void Logger::binToStr() {
+  //TODO - convert binary data to string
+}
+
+
+void logStruct::getBinary(uint32_t buf[]) {
+  union unionBuffer {
+    float f;
+    uint32_t buf;
+  } u;
+
+  buf[0] = time;
+  u.f = roll;  buf[1] = u.buf;
+  u.f = pitch; buf[2] = u.buf;
+  buf[3] = (Pp << 16) | Pr;
+  buf[4] = (Ip << 16) | Ir;
+  buf[5] = (Dp << 16) | Dr;
+  buf[6] = (radio << 16) | yaw;
+  buf[7] = (rollInput << 24) | (pitchInput << 16) | (verticalInput << 8) | pot;
 }
