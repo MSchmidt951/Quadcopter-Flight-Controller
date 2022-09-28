@@ -5,6 +5,9 @@
 #include "PIDcontroller.h"
 
 /*** * * * DRONE SETTINGS * * * ***/
+const int loopRate = 2000; //Maxiumum loop rate (Hz)
+const int maxLoopTime = 1000000/loopRate; //Maximum loop time (us)
+
 //IMU and sensor settings can be found in IMU.h
 //Log and SD card settings can be found in Logger.h
 //Motor settings can be found in MotorController.h
@@ -110,7 +113,8 @@ void setup(){
   logger.logSetting("angleOffset", angleOffset, 3, 2);
   logger.logSetting("defaultZ", ESC.defaultZ);
   logger.logString("\nPerformance\n");
-  logger.logSetting("Pgain", pid.Pgain, 3, 2, false);
+  logger.logSetting("Loop rate", loopRate, false);
+  logger.logSetting("Pgain", pid.Pgain, 3, 2);
   logger.logSetting("Igain", pid.Igain, 3, 4);
   logger.logSetting("Dgain", pid.Dgain, 3, 3);
   logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
@@ -166,8 +170,8 @@ void loop(){
     //Get loop time
     lastLoopTimestamp = loopTimestamp;
     loopTimestamp = micros()-standbyOffset;
-    //Make sure the loop is at least 250 microseconds long
-    while (loopTimeMicro() < 250) {
+    //Make sure the loop is executing no faster than the max loop time
+    while (loopTimeMicro() < maxLoopTime) {
       delayMicroseconds(1);
       loopTimestamp = micros()-standbyOffset;
     }
