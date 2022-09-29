@@ -191,21 +191,21 @@ void loop(){
     ESC.write();
 
     /* Log flight info */
-    logger.currentLog.time = micros()-startTime-standbyOffset;
-    logger.currentLog.rollInput = xyzr[0];
-    logger.currentLog.pitchInput = xyzr[1];
-    logger.currentLog.verticalInput = xyzr[2];
-    logger.currentLog.pot = potPercent;
-    logger.currentLog.roll = imu.currentAngle[0];
-    logger.currentLog.pitch = imu.currentAngle[1];
-    logger.currentLog.Pp = pid.PIDchange[0][1] * 1000;
-    logger.currentLog.Pr = pid.PIDchange[0][0] * 1000;
-    logger.currentLog.Ip = pid.PIDchange[1][1] * 1000;
-    logger.currentLog.Ir = pid.PIDchange[1][0] * 1000;
-    logger.currentLog.Dp = pid.PIDchange[2][1] * 1000;
-    logger.currentLog.Dr = pid.PIDchange[2][0] * 1000;
-    logger.currentLog.radio = droneRadio.timer/1000;
-    logger.currentLog.yaw = imu.currentAngle[2];
+    logger.logData(micros()-startTime-standbyOffset, typeID.uint32);
+    for (int i=0; i<3; i++) {
+      logger.logData(xyzr[i], typeID.uint8);
+    }
+    logger.logData((uint8_t)(potPercent*255), typeID.uint8);
+    for (int i=0; i<2; i++) {
+      logger.logData(imu.currentAngle[i], typeID.float32);
+    }
+    for (int i=0; i<3; i++) {
+      for (int j=0; j<2; j++) {
+        logger.logData((int16_t)(pid.PIDchange[i][j]*1000), typeID.int16);
+      }
+    }
+    logger.logData((uint16_t)(droneRadio.timer/1000), typeID.uint16);
+    logger.logData(imu.currentAngle[2], typeID.float16);
 
     logger.write();
   }

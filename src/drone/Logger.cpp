@@ -69,12 +69,18 @@ void Logger::logString(String s) {
 }
 
 void Logger::write() {
-  //Write to log file
-  currentLog.getBinary(buf);
-  logFileBin.write(&buf, sizeof(logStruct));
-
   //Store how long each section of the main loop takes
   storeSectionTime();
+
+  //Write to log file
+  logFileBin.write(&buf, (bufOffset+7)/8);
+  firstLog = false;
+
+  //Reset the buffer
+  for (uint8_t i=0; i<sizeof(buf)/4; i++) {
+    buf[i] = 0;
+  }
+  bufOffset = 0;
 }
 
 void Logger::calcSectionTime() {
@@ -86,14 +92,17 @@ void Logger::calcSectionTime() {
 
 void Logger::storeSectionTime() {
   //Process how long each section of the loop takes
-  for(int i=0; i<maxLoopTimerSections-1; i++) {
-    if (loopTimings[i+1] != 0) {
-      loopTimings[i] = loopTimings[i+1] - loopTimings[i];
-    }
+  for(int i=0; i<timerIndex-1; i++) {
+    loopTimings[i] = loopTimings[i+1] - loopTimings[i];
   }
+  loopTimings[timerIndex] = 0;
 
   //Log how long each section of the loop takes
-  //TODO - log loopTimings
+  if (timerIndex > 1) {
+    for (int i=0; i<maxLoopTimerSections; i++) {
+      logData((uint16_t)loopTimings[i], typeID.uint16);
+    }
+  }
 
   //Reset the variables for the next loop
   timerIndex = 0;
@@ -105,29 +114,19 @@ void Logger::storeSectionTime() {
 }
 
 void Logger::closeFile() {
-  binToStr();
+  //Close the binary file
   logFileBin.flush();
   logFileBin.truncate();
   logFileBin.close();
+
+  //Convert the binary data to sring
+  logFileBin.open("log.bin", O_READ);
+  logFile.open("log.csv", O_WRITE | O_APPEND);
+  binToStr();
+  logFileBin.close();
+  logFile.close();
 }
 
 void Logger::binToStr() {
   //TODO - convert binary data to string
-}
-
-
-void logStruct::getBinary(uint32_t buf[]) {
-  union unionBuffer {
-    float f;
-    uint32_t buf;
-  } u;
-
-  buf[0] = time;
-  u.f = roll;  buf[1] = u.buf;
-  u.f = pitch; buf[2] = u.buf;
-  buf[3] = (Pp << 16) | Pr;
-  buf[4] = (Ip << 16) | Ir;
-  buf[5] = (Dp << 16) | Dr;
-  buf[6] = (radio << 16) | yaw;
-  buf[7] = (rollInput << 24) | (pitchInput << 16) | (verticalInput << 8) | pot;
 }

@@ -6,30 +6,23 @@
 #include <ArduinoJson.h>
 
 extern void blink(int);
+extern const int loopRate;
 
-
-struct logStruct {
-  unsigned long time;
-  float roll;
-  float pitch;
-  int16_t Pp; int16_t Pr;
-  int16_t Ip; int16_t Ir;
-  int16_t Dp; int16_t Dr;
-  uint16_t radio;
-  int16_t yaw;
-  char rollInput;
-  char pitchInput;
-  char verticalInput;
-  char pot;
-
-  void getBinary(uint32_t buf[]);
-};
 
 /* Settings */
-const int logFileSize = 10 * sizeof(logStruct)*4000*60; //Reserve enough space for 10 mins
+const int logBufferLen = 24; //The max length of the buffer in words (4 bytes each)
+const int logFileSize = 10*60 * logBufferLen*4 * loopRate; //Reserve enough space for 10 mins
 const int maxLoopTimerSections = 8; //The maximum times calcSectionTime can be called per loop
 /* Settings */
 
+const struct TypeID {
+  const uint8_t uint8   =   8;
+  const uint8_t uint16  =  16;
+  const uint8_t int16   = 116;
+  const uint8_t uint32  =  32;
+  const uint8_t float16 = 216;
+  const uint8_t float32 = 232;
+} typeID;
 
 class Logger {
   public:
@@ -56,14 +49,38 @@ class Logger {
         }
       }
     }
+    template <typename T> void logData(T data, const uint8_t data_typeID) {
+      //Convert data
+      union unionBuffer {
+        T in;
+        int16_t float16;
+        word w;
+      } u;
+      if (data_typeID == typeID.float16) {
+        u.float16 = (int16_t)(data*10);
+      } else {
+        u.in = data;
+      }
 
-    logStruct currentLog;
+      //Store data type
+      if (firstLog) {
+        varID[varCount] = data_typeID;
+        varCount++;
+      }
+
+      //Add data to buffer
+      for (int i=0; i<data_typeID%100; i++) {
+        if (bitRead(u.w, i)) {
+          bitSet(buf[bufOffset/32], i);
+        }
+        bufOffset++;
+      }
+    }
 
   private:
     void checkSD(bool condition);
     void binToStr();
 
-    uint32_t buf[sizeof(logStruct)/4];
     //File variables
     SdFs sd;
     FsFile logFile;
@@ -71,6 +88,12 @@ class Logger {
     StaticJsonDocument<512> sdSettings;
     //Section timer variables
     unsigned long loopTimings[maxLoopTimerSections];
-    int timerIndex;
+    uint8_t timerIndex;
+    //Buffer variables
+    word buf[logBufferLen];
+    uint16_t bufOffset;
+    bool firstLog = true;
+    uint8_t varID[32];
+    uint8_t varCount;
 };
 #endif
