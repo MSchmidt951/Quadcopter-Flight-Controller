@@ -118,7 +118,7 @@ void setup(){
   logger.logSetting("Igain", pid.Igain, 3, 4);
   logger.logSetting("Dgain", pid.Dgain, 3, 3);
   logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
-  logger.logString("Time,Loop time,Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,FL,FR,BL,BR,radio,yaw");
+  logger.logString("Time (μs),Loop time (μs),Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,radio,yaw");
 
   //Set up motors
   ESC.init();
@@ -191,8 +191,8 @@ void loop(){
     ESC.write();
 
     /* Log flight info */
-    logger.logData(micros()-startTime-standbyOffset, typeID.uint32);
-    for (int i=0; i<3; i++) {
+    logger.logTime(micros()-startTime-standbyOffset);
+    for (int i=0; i<4; i++) {
       logger.logData(xyzr[i], typeID.uint8);
     }
     logger.logData((uint8_t)(potPercent*255), typeID.uint8);
@@ -201,7 +201,7 @@ void loop(){
     }
     for (int i=0; i<3; i++) {
       for (int j=0; j<2; j++) {
-        logger.logData((int16_t)(pid.PIDchange[i][j]*1000), typeID.int16);
+        logger.logData(pid.PIDchange[i][j], typeID.float16k);
       }
     }
     logger.logData((uint16_t)(droneRadio.timer/1000), typeID.uint16);

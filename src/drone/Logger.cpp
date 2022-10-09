@@ -68,6 +68,10 @@ void Logger::logString(String s) {
   logFile.close();
 }
 
+void Logger::logTime(unsigned int t) {
+  logData(t, typeID.time);
+}
+
 void Logger::write() {
   //Store how long each section of the main loop takes
   storeSectionTime();
@@ -128,5 +132,61 @@ void Logger::closeFile() {
 }
 
 void Logger::binToStr() {
-  //TODO - convert binary data to string
+  union unionBuffer {
+    int8_t int8;
+    int16_t int16;
+    int32_t int32;
+    uint32_t uinteger;
+    float decimal;
+  } u;
+
+  uint32_t prevTime = 0;
+  String s;
+  while (logFileBin.position() < logFileBin.size()) {
+    for (int i=0; i<varCount; i++) {
+      if (i == 0) {
+        s = "\n";
+      } else {
+        s += ",";
+      }
+
+      u.uinteger = 0; //Reset the variable to zero
+      logFileBin.read(&u.uinteger, (varID[i]%50)/8);
+
+      switch (varID[i]) {
+        case typeID.time:
+          s += String(u.uinteger);
+          s += ",";
+          s += String(u.uinteger - prevTime);
+          prevTime = u.uinteger;
+          break;
+        case typeID.uint8:
+        case typeID.uint16:
+        case typeID.uint32:
+          s += String(u.uinteger);
+          break;
+        case typeID.int8:
+          s += String(u.int8);
+          break;
+        case typeID.int16:
+          s += String(u.int16);
+          break;
+        case typeID.int32:
+          s += String(u.int32);
+          break;
+        case typeID.float16:
+          s += String(u.int16/10.0, 1);
+          break;
+        case typeID.float16k:
+          s += String(u.int16/1000.0, 3);
+          break;
+        case typeID.float32:
+          s += String(u.decimal, 3);
+          break;
+        default:
+          s += "error";
+      }
+    }
+    logFile.print(s);
+  }
 }
