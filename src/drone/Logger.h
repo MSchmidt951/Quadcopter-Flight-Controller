@@ -87,6 +87,7 @@ class Logger {
 
   private:
     void checkSD(bool condition);
+    void checkLog(int fileNum);
     void binToStr();
 
     //File variables

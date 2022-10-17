@@ -2,12 +2,7 @@
 
 void Logger::init(){
   checkSD(sd.begin(SdioConfig(FIFO_SDIO)));
-  if (sd.exists("log.csv")) {
-    sd.remove("log_old.csv");
-    logFile.open("log.csv", O_WRITE);
-    logFile.rename("log_old.csv");
-    logFile.close();
-  }
+  checkLog(0);
 
   sd.remove("log.bin");
   logFileBin.open("log.bin", O_WRITE | O_CREAT | O_TRUNC);
@@ -29,6 +24,22 @@ void Logger::checkSD(bool condition) {
     for (;;) {
       blink(1500);
     }
+  }
+}
+
+void Logger::checkLog(int fileNum) {
+  char fileName[10];
+  String("log_" + String(fileNum) + ".csv").toCharArray(fileName, sizeof(fileName));
+  if (sd.exists(fileName)) {
+    char nextFile[10];
+    String("log_" + String(fileNum+1) + ".csv").toCharArray(nextFile, sizeof(nextFile));
+    if (sd.exists(nextFile)) {
+      checkLog(fileNum+1);
+    }
+
+    logFile.open(fileName, O_WRITE);
+    logFile.rename(nextFile);
+    logFile.close();
   }
 }
 
@@ -63,7 +74,7 @@ void Logger::logArray(const float *arr, int len, int decimals) {
 }
 
 void Logger::logString(String s) {
-  logFile.open("log.csv", O_CREAT | O_WRITE | O_APPEND);
+  logFile.open("log_0.csv", O_CREAT | O_WRITE | O_APPEND);
   logFile.print(s);
   logFile.close();
 }
@@ -125,7 +136,7 @@ void Logger::closeFile() {
 
   //Convert the binary data to sring
   logFileBin.open("log.bin", O_READ);
-  logFile.open("log.csv", O_WRITE | O_APPEND);
+  logFile.open("log_0.csv", O_WRITE | O_APPEND);
   binToStr();
   logFileBin.close();
   logFile.close();
