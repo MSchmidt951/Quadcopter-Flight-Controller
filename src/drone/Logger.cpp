@@ -151,9 +151,30 @@ void Logger::binToStr() {
     float decimal;
   } u;
 
+  //Calculate the size of each log
+  int16_t logSize = 0;
+  for (int i=0; i<varCount; i++) {
+    logSize += (varID[i]%50) / 8;
+  }
+  char buf[logSize * 100];
+  uint16_t bufIndex = 0;
+  
   uint32_t prevTime = 0;
   String s;
-  while (logFileBin.position() < logFileBin.size()) {
+  bool eof = false;
+  while (logFileBin.position() < logFileBin.size() or eof) {
+    if (bufIndex == 0) {
+      if (eof) {
+        break;
+      }
+      if (sizeof(buf) < logFileBin.size() - logFileBin.position()) {
+        logFileBin.read(&buf, sizeof(buf));
+      } else {
+        logFileBin.read(&buf, logFileBin.available());
+        eof = true;
+      }
+    }
+
     for (int i=0; i<varCount; i++) {
       if (i == 0) {
         s = "\n";
@@ -162,7 +183,12 @@ void Logger::binToStr() {
       }
 
       u.uinteger = 0; //Reset the variable to zero
-      logFileBin.read(&u.uinteger, (varID[i]%50)/8);
+      for (int j=0; j<varID[i]%50; j++) {
+        if (bitRead(buf[bufIndex/8], bufIndex%8)) {
+          bitSet(u.uinteger, j);
+        }
+        bufIndex++;
+      }
 
       switch (varID[i]) {
         case typeID.time:
@@ -199,5 +225,6 @@ void Logger::binToStr() {
       }
     }
     logFile.print(s);
+    bufIndex %= sizeof(buf) * 8;
   }
 }
