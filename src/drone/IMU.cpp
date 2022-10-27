@@ -1,4 +1,4 @@
-#if IMU_TYPE == NONE
+#if IMU_TYPE == NO_IMU
   #include "Arduino.h"
 #endif
 #include "IMU.h"
@@ -129,16 +129,38 @@ void IMU::updateAngle() {
     for (int i=0; i<3; i++) {
       rRate[i] = gyroData[i] * 2000.0/32768.0;;
     }
-  #elif IMU_TYPE == NONE
+  #elif IMU_TYPE == NO_IMU
     for (int i=0; i<3; i++) {
-      rRate[i] = 0;
-      currentAngle[i] = 0;
+      gyroVal[i] = i*.0;
+    }
+    accelVal[0] = 1;
+    accelVal[1] = 0;
+    accelVal[2] = 0;
+
+    //Update quaternion values
+    MadgwickQuaternionUpdate(accelVal, gyroVal);
+    //Convert quaternion to roll, pitch and yaw
+    currentAngle[0] = -atan2(2 * (q[0]*q[1] + q[2]*q[3]), q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3]);
+    currentAngle[1] = -asin(2 * (q[1]*q[3] - q[0]*q[2]));
+    currentAngle[2] = atan2(2 * (q[1]*q[2] + q[0]*q[3]), q[0]*q[0] + q[1]*q[1] - q[2]*q[2] - q[3]*q[3]);
+    //Convert from radians to degrees
+    for (int i=0; i<3; i++) {
+      currentAngle[i] *= 180 / PI;
+    }
+
+    //Apply kalman filter to roll and pitch
+    currentAngle[0] = rollKalman.updateEstimate(currentAngle[0]);
+    currentAngle[1] = pitchKalman.updateEstimate(currentAngle[1]);
+
+    //Get rotation rate
+    for (int i=0; i<3; i++) {
+      rRate[i] = gyroVal[i];
     }
   #endif
 }
 
 //Functions for specific setups
-#if IMU_TYPE == IMU_MPU6050
+#if IMU_TYPE == IMU_MPU6050 or IMU_TYPE == NO_IMU
   //Kris Winer's implementation of Sebastian Madgwick's "...efficient orientation filter for... inertial/magnetic sensor arrays"
   //I have changd the inputs to work with my program
   void IMU::MadgwickQuaternionUpdate(float *accel, float *gyro) {

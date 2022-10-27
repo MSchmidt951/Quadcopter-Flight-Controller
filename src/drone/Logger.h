@@ -1,9 +1,20 @@
 #ifndef __Logger_H__
 #define __Logger_H__
 
+//Different types of storage defined here
+#define RAM -1 //This should only be used for testing and has very little storage space
+#define SD_CARD 0
+
+//Select which storage to use
+#define STORAGE_TYPE SD_CARD
+
 //Import libraries
-#include <SdFat.h>
-#include <ArduinoJson.h>
+#if STORAGE_TYPE == SD_CARD
+  #include <SdFat.h>
+  #include <ArduinoJson.h>
+#elif STORAGE_TYPE == RAM
+  #include "Arduino.h"
+#endif
 
 extern void blink(int);
 extern const int loopRate;
@@ -44,16 +55,20 @@ class Logger {
     void closeFile();
 
     template <typename T> void loadSetting(String name, T &var){
-      if (sdSettings.containsKey(name)) {
-        var = sdSettings[name];
-      }
+      #if STORAGE_TYPE == SD_CARD
+        if (sdSettings.containsKey(name)) {
+          var = sdSettings[name];
+        }
+      #endif
     }
     template <typename T> void loadSetting(String name, T *var, int len){
-      if (sdSettings.containsKey(name)) {
-        for (int i=0; i<len; i++) {
-          var[i] = sdSettings[name][i];
+      #if STORAGE_TYPE == SD_CARD
+        if (sdSettings.containsKey(name)) {
+          for (int i=0; i<len; i++) {
+            var[i] = sdSettings[name][i];
+          }
         }
-      }
+      #endif
     }
     template <typename T> void logData(T data, const uint8_t data_typeID) {
       //Convert data
@@ -80,7 +95,13 @@ class Logger {
       for (int i=0; i<data_typeID%50; i++) {
         if (bitRead(u.w, i)) {
           bitSet(buf[bufOffset/32], bufOffset%32);
+          #if STORAGE_TYPE == RAM
+            bitSet(bigBuf[bigBufLen/32], bigBufLen%32);
+          #endif
         }
+        #if STORAGE_TYPE == RAM
+          bigBufLen++;
+        #endif
         bufOffset++;
       }
     }
@@ -91,10 +112,15 @@ class Logger {
     void binToStr();
 
     //File variables
-    SdFs sd;
-    FsFile logFile;
-    FsFile logFileBin;
-    StaticJsonDocument<512> sdSettings;
+    #if STORAGE_TYPE == SD_CARD
+      SdFs sd;
+      FsFile logFile;
+      FsFile logFileBin;
+      StaticJsonDocument<512> sdSettings;
+    #elif STORAGE_TYPE == RAM
+      uint32_t bigBuf[2100*36/4];
+      uint32_t bigBufLen;
+    #endif
     //Section timer variables
     unsigned long loopTimings[maxLoopTimerSections];
     uint8_t timerIndex;

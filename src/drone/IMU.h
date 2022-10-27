@@ -2,7 +2,7 @@
 #define __IMU_H__
 
 //Different types of sensors/libraries defined here
-#define NONE -1
+#define NO_IMU -1
 #define IMU_MPU6050 0
 #define IMU_MPU6050_DMP 1 //200 Hz max
 
@@ -18,6 +18,9 @@
 #elif IMU_TYPE == IMU_MPU6050_DMP
   #include <Wire.h>
   #include <MPU6050_6Axis_MotionApps612.h>
+#elif IMU_TYPE == NO_IMU
+  #include <MPU6050_kriswiner.h>
+  #include <SimpleKalmanFilter.h>
 #endif
 
 extern const int lightPin;
@@ -46,6 +49,8 @@ class IMU {
       float gRes; //Resolution of the accelerometer
       int16_t accelData[3];      //Accelerometer sensor output
       int16_t gyroData[3];       //Gyroscope sensor output
+    #endif
+    #if IMU_TYPE == IMU_MPU6050 or IMU_TYPE == NO_IMU
       float accelVal[3];         //Accelerometer value in g's
       float gyroVal[3];          //Gyroscope value in degrees per seconds
       SimpleKalmanFilter rollKalman{.5, 1, 0.5};
