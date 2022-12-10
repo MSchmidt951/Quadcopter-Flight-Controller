@@ -11,8 +11,9 @@ void DroneRadio::init() {
   radio.openReadingPipe(1, addresses[0]);
   
   //Ready drone
+  data[0] = 0b01010101;
   for (int i=0; i<10; i++){
-    radio.write(0b01010101, 1);
+    radio.write(&data, 1);
     delay(5);
   }
   radio.startListening();

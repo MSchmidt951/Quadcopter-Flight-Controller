@@ -57,7 +57,7 @@ void MotorController::write() {
     motorPower[i] = initialPower;
     motorPower[i] += dynamicChange[i];
     motorPower[i] += offset[i]/100;
-    motorPower[i] = min(max(0, motorPower[i]*1000), 1000); //Limit values to 0 - 1000
+    motorPower[i] = min(max(0.0f, motorPower[i]*1000), 1000.0f); //Limit values to 0 - 1000
 
     //Round motor power and apply it to the ESC
     writeToMotor(i, toInt(motorPower[i]));

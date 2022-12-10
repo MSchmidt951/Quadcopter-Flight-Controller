@@ -42,17 +42,9 @@ class IMU {
 
   private:
     //Define variables specific to setups
-    #if IMU_TYPE == IMU_MPU6050
-      MPU6050lib mpu;
-      const int intPin = 41;
-      float aRes; //Resolution of the accelerometer
-      float gRes; //Resolution of the accelerometer
-      int16_t accelData[3];      //Accelerometer sensor output
-      int16_t gyroData[3];       //Gyroscope sensor output
-    #endif
     #if IMU_TYPE == IMU_MPU6050 or IMU_TYPE == NO_IMU
-      float accelVal[3];         //Accelerometer value in g's
-      float gyroVal[3];          //Gyroscope value in degrees per seconds
+      float accelVal[3]; //Accelerometer value in g's
+      float gyroVal[3];  //Gyroscope value in degrees per seconds
       SimpleKalmanFilter rollKalman{.5, 1, 0.5};
       SimpleKalmanFilter pitchKalman{.5, 1, 0.5};
       float q[4] = {1, 0, 0, 0}; //Quaternion container
@@ -62,6 +54,15 @@ class IMU {
 
       void MadgwickQuaternionUpdate(float *accel, float *gyro);
       void eulerToQuat(float roll, float pitch, float yaw);
+
+      #if IMU_TYPE == IMU_MPU6050
+        MPU6050lib mpu;
+        const int intPin = 41;
+        float aRes; //Resolution of the accelerometer
+        float gRes; //Resolution of the accelerometer
+        int16_t accelData[3]; //Accelerometer sensor output
+        int16_t gyroData[3];  //Gyroscope sensor output
+      #endif
     #elif IMU_TYPE == IMU_MPU6050_DMP
       //MPU control/status vars
       MPU6050 mpu;
