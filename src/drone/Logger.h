@@ -25,6 +25,7 @@ const int logBufferLen = 24; //The max amont of buffer sections, each being 4 by
 const int logFileSize = 10*60 * logBufferLen*4 * loopRate; //Reserve enough space for 10 mins
 const int maxLoopTimerSections = 8; //The maximum times calcSectionTime can be called per loop
 const int maxVarCount = 32; //The maximum number of variables that can be stored in the log
+const int logDiv = 1; //Sets the logging rate (data is logged every logDiv loops)
 /* Settings */
 
 constexpr struct TypeID {
@@ -46,6 +47,7 @@ class Logger {
     void logSetting(String name, int data, bool seperator=true);
     void logSetting(String name, float data, int decimals, bool seperator=true);
     void logSetting(String name, const float *arr, int len, int decimals, bool seperator=true);
+    bool checkLog();
     void logArray(const float *arr, int len, int decimals);
     void logString(String s);
     void logTime(unsigned int t);
@@ -111,6 +113,7 @@ class Logger {
     void checkLog(int fileNum);
     void binToStr();
 
+    uint8_t loopsSinceLog = 255;
     //File variables
     #if STORAGE_TYPE == SD_CARD
       SdFs sd;

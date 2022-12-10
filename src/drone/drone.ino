@@ -191,22 +191,24 @@ void loop(){
     ESC.write();
 
     /* Log flight info */
-    logger.logTime(micros()-startTime-standbyOffset);
-    for (int i=0; i<4; i++) {
-      logger.logData(xyzr[i], typeID.uint8);
-    }
-    logger.logData((uint8_t)(potPercent*255), typeID.uint8);
-    for (int i=0; i<2; i++) {
-      logger.logData(imu.currentAngle[i], typeID.float32);
-    }
-    for (int i=0; i<3; i++) {
-      for (int j=0; j<2; j++) {
-        logger.logData(pid.PIDchange[i][j], typeID.float16k);
+    if (logger.checkLog()) {
+      logger.logTime(micros()-startTime-standbyOffset);
+      for (int i=0; i<4; i++) {
+        logger.logData(xyzr[i], typeID.uint8);
       }
-    }
-    logger.logData((uint16_t)(droneRadio.timer/1000), typeID.uint16);
-    logger.logData(imu.currentAngle[2], typeID.float16);
+      logger.logData((uint8_t)(potPercent*255), typeID.uint8);
+      for (int i=0; i<2; i++) {
+        logger.logData(imu.currentAngle[i], typeID.float32);
+      }
+      for (int i=0; i<3; i++) {
+        for (int j=0; j<2; j++) {
+          logger.logData(pid.PIDchange[i][j], typeID.float16k);
+        }
+      }
+      logger.logData((uint16_t)(droneRadio.timer/1000), typeID.uint16);
+      logger.logData(imu.currentAngle[2], typeID.float16);
 
-    logger.write();
+      logger.write();
+    }
   }
 }

@@ -71,6 +71,16 @@ void Logger::logSetting(String name, const float *arr, int len, int decimals, bo
   logArray(arr, len, decimals);
 }
 
+bool Logger::checkLog() {
+  if (loopsSinceLog >= logDiv) {
+    loopsSinceLog = 0;
+    return true;
+  } else {
+    loopsSinceLog++;
+    return false;
+  }
+}
+
 void Logger::logArray(const float *arr, int len, int decimals) {
   String arrayString = "";
   for (int i=0; i<len; i++) {
