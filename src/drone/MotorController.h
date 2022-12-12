@@ -13,6 +13,9 @@
   #include <Servo.h>
 #endif
 
+//Import files
+#include "Logger.h"
+
 extern const int lightPin;
 extern int xyzr[4];
 extern float potPercent;
@@ -22,7 +25,7 @@ int toInt(float f);
 
 class MotorController {
   public:
-    void init();
+    void init(Logger &logger);
     void addChange(float PIDchange[3][3], int axis, int pA, int pB, int nA, int nB);
     void write();
     void writeZero();
@@ -30,10 +33,10 @@ class MotorController {
     float motorPower[4]; //Percentage; FL, FR, BL, BR
 
     /* Settings */
-    const float offset[4] = {0, 0, 0, 0}; //Base percentage difference per motor
-    const float defaultZ = .35;           //Default motor percentage
-    const float maxZdiff[2] = {.1, .18};  //Percentage z difference for joystick down & up, respectively
-    const float potMaxDiff = .1;          //Max percentage difference of potentiometer which acts like a trim for the base motor power
+    float offset[4] = {0, 0, 0, 0}; //Base percentage difference per motor
+    float defaultZ = .35;           //Default motor percentage
+    float maxZdiff[2] = {.1, .18};  //Percentage z difference for joystick down & up, respectively
+    float potMaxDiff = .1;          //Max percentage difference of potentiometer which acts like a trim for the base motor power
     /* Settings */
 
   private:

@@ -103,6 +103,15 @@ void setup(){
   //Set up PID controller
   pid.init(logger);
 
+  //Set up motors
+  ESC.init(logger);
+
+  //Set up inertial measurement unit
+  if (imu.init(logger)) {
+    logger.logString("IMU error");
+    ABORT();
+  }
+
   //Log the settings
   logger.logString("User input\n");
   logger.logSetting("maxZdiff", ESC.maxZdiff, 2, 2, false);
@@ -110,7 +119,7 @@ void setup(){
   logger.logSetting("maxAngle", 127/pid.maxAngle);
   logger.logString("\nOffsets\n");
   logger.logSetting("motorOffset", ESC.offset, 4, 3, false);
-  logger.logSetting("angleOffset", angleOffset, 3, 2);
+  logger.logSetting("angleOffset", imu.angleOffset, 3, 2);
   logger.logSetting("defaultZ", ESC.defaultZ);
   logger.logString("\nPerformance\n");
   logger.logSetting("Loop rate", loopRate, false);
@@ -119,15 +128,6 @@ void setup(){
   logger.logSetting("Dgain", pid.Dgain, 3, 3);
   logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
   logger.logString("Time (μs),Loop time (μs),Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,radio,yaw");
-
-  //Set up motors
-  ESC.init();
-
-  //Set up inertial measurement unit
-  if (imu.init()) {
-    logger.logString("IMU error");
-    ABORT();
-  }
   
   //Set up communication
   droneRadio.init();

@@ -23,22 +23,24 @@
   #include <SimpleKalmanFilter.h>
 #endif
 
+//Import files
+#include "Logger.h"
+
 extern const int lightPin;
 extern float loopTime();
 
 
-/* Settings */
-const float angleOffset[3] = {8, 1.1, 0}; //IMU angle offset {roll, pitch and yaw}
-/* Settings */
-
-
 class IMU {
   public:
-    int init();
+    int init(Logger &logger);
     void updateAngle();
     
     float currentAngle[3] = {0, 0, 0}; //Current angle of roll, pitch and yaw (in degrees)
     float rRate[3] = {0, 0, 0};        //Rotation rate (degrees per millisecond) of roll, pitch and yaw
+
+    /* Settings */
+    float angleOffset[3] = {8, 1.1, 0}; //IMU angle offset {roll, pitch and yaw}
+    /* Settings */
 
   private:
     //Define variables specific to setups

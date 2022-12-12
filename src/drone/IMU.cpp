@@ -3,7 +3,10 @@
 #endif
 #include "IMU.h"
 
-int IMU::init() {
+int IMU::init(Logger &logger) {
+  //Load settings from the SD card
+  logger.loadSetting("angleOffset", angleOffset, 3);
+
   digitalWrite(lightPin, HIGH);
   #if IMU_TYPE == IMU_MPU6050
     Wire.begin();

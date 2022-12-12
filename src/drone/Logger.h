@@ -59,7 +59,9 @@ class Logger {
     template <typename T> void loadSetting(String name, T &var){
       #if STORAGE_TYPE == SD_CARD
         if (sdSettings.containsKey(name)) {
-          var = sdSettings[name];
+          if (sdSettings[name] != "default") {
+            var = sdSettings[name];
+          }
         }
       #endif
     }
@@ -67,7 +69,9 @@ class Logger {
       #if STORAGE_TYPE == SD_CARD
         if (sdSettings.containsKey(name)) {
           for (int i=0; i<len; i++) {
-            var[i] = sdSettings[name][i];
+            if (sdSettings[name][i] != "default") {
+              var[i] = sdSettings[name][i];
+            }
           }
         }
       #endif

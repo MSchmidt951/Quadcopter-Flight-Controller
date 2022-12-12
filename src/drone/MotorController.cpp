@@ -5,7 +5,13 @@ int toInt(float f){
   return int(f + .5);
 }
 
-void MotorController::init() {
+void MotorController::init(Logger &logger) {
+  //Load settings from the SD card
+  logger.loadSetting("motorOffset", offset, 4);
+  logger.loadSetting("defaultZ", defaultZ);
+  logger.loadSetting("maxZdiff", maxZdiff, 2);
+  logger.loadSetting("potMaxDiff", potMaxDiff);
+
   //Prime motors
   digitalWrite(lightPin, HIGH);
   for (int i=0; i<4; i++){

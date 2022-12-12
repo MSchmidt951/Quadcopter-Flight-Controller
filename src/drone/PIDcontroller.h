@@ -14,6 +14,7 @@ class PIDcontroller {
     void calcPID(IMU imu);
     
     float PIDchange[3][3] = {{0,0,0}, {0,0,0}, {0,0,0}}; //The change from the P, I and D values that will be applied to the roll, pitch & yaw; PIDchange[P/I/D][roll/pitch/yaw]
+
     /* Settings */
     //User input
     float maxAngle = 15.0;   //Maximum wanted bank angle available to select by the user
