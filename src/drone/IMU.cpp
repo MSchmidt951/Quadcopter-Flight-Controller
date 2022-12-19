@@ -82,7 +82,6 @@ int IMU::init(Logger &logger) {
   return 0;
 }
 
-//Get the current angle and rotation rate from
 void IMU::updateAngle() {
   #if IMU_TYPE == IMU_MPU6050
     if (mpu.readByte(MPU6050_ADDRESS, INT_STATUS) & 0x01) {

@@ -71,7 +71,7 @@ void Logger::logSetting(String name, const float *arr, int len, int decimals, bo
   logArray(arr, len, decimals);
 }
 
-bool Logger::checkLog() {
+bool Logger::checkLogReady() {
   if (loopsSinceLog >= logDiv) {
     loopsSinceLog = 0;
     return true;

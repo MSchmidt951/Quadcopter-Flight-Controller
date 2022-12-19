@@ -12,7 +12,7 @@ void MotorController::init(Logger &logger) {
   logger.loadSetting("maxZdiff", maxZdiff, 2);
   logger.loadSetting("potMaxDiff", potMaxDiff);
 
-  //Prime motors
+  //Arm ESCs
   digitalWrite(lightPin, HIGH);
   for (int i=0; i<4; i++){
     #if ESC_TYPE == PWM

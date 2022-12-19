@@ -191,7 +191,7 @@ void loop(){
     ESC.write();
 
     /* Log flight info */
-    if (logger.checkLog()) {
+    if (logger.checkLogReady()) {
       logger.logTime(micros()-startTime-standbyOffset);
       for (int i=0; i<4; i++) {
         logger.logData(xyzr[i], typeID.uint8);
