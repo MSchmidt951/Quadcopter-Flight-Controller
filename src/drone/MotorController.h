@@ -3,14 +3,17 @@
 
 //ESC signal type defenitions
 #define PWM 1 //1000 to 2000 μs pulse length
+#define ONESHOT125 2 //125 to 250 μs pulse length
 
 //Set ESC signal type
-#define ESC_TYPE PWM
+#define ESC_TYPE ONESHOT125
 
 
 //Import libraries
 #if ESC_TYPE == PWM
   #include <Servo.h>
+#elif ESC_TYPE == ONESHOT125
+  #include <Teensy_PWM.h>
 #endif
 
 //Import files
@@ -73,18 +76,25 @@ class MotorController {
      *  @param[in] index Index of the motor in the motors array
      *  @param[in] value Speed of motor, 0 - 1000
      */
-    void writeToMotor(int index, int value);
+    void writeToMotor(int index, float value);
 
     ///Which pin controls which motor. Order: {FL, FR, BL, BR}
     const int motors[4] = {23, 22, 21, 20};
-    ///The base motor power percentage at the start of each loop
+    ///Base motor power percentage at the start of each loop
     float initialPower;
-    ///This is the percentage change of each motor. Usually from the PID controller
+    ///Percentage change of each motor. Usually from the PID controller
     float dynamicChange[4];
     
     #if ESC_TYPE == PWM
       ///Holds the PWM signal being sent to each motor
       Servo ESCsignal[4];
+    #elif ESC_TYPE == ONESHOT125
+      ///Holds the OneShot125 signal being sent to each motor
+      Teensy_PWM* ESCsignal[4];
+      //Frequency of the signal being sent to the ESC (Hz)
+      float signalFreq = 3500.0f;
+      //Maximum duty cycle allowed to be sent to the ESC, depends on signalFreq
+      float maxDutyCycle = signalFreq/40.0f;
     #endif
 };
 #endif

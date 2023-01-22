@@ -103,14 +103,14 @@ void setup(){
   //Set up PID controller
   pid.init(logger);
 
-  //Set up motors
-  ESC.init(logger);
-
   //Set up inertial measurement unit
   if (imu.init(logger)) {
     logger.logString("IMU error");
     ABORT();
   }
+
+  //Set up motors
+  ESC.init(logger);
 
   //Log the settings
   logger.logString("User input\n");
