@@ -36,7 +36,7 @@ IMU imu;
 PIDcontroller pid;
 
 //Hardware vars
-const int lightPin = 5;
+const int lightPin = 23;
 DroneRadio droneRadio;
 MotorController ESC;
 Logger logger;

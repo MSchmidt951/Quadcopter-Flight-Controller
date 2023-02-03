@@ -79,7 +79,7 @@ class MotorController {
     void writeToMotor(int index, float value);
 
     ///Which pin controls which motor. Order: {FL, FR, BL, BR}
-    const int motors[4] = {23, 22, 21, 20};
+    const int motors[4] = {10, 9, 8, 7};
     ///Base motor power percentage at the start of each loop
     float initialPower;
     ///Percentage change of each motor. Usually from the PID controller

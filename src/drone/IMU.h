@@ -86,7 +86,7 @@ class IMU {
         ///MPU6050 object
         MPU6050lib mpu;
         ///Interrupt pin
-        const int intPin = 41;
+        const int intPin = 39;
         ///Resolution of the accelerometer
         float aRes;
         ///Resolution of the accelerometer

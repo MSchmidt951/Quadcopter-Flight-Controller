@@ -1,7 +1,7 @@
 #include "DroneRadio.h"
 
 void DroneRadio::init() {
-  radio.begin();
+  radio.begin(&SPI1);
   radio.setRadiation(RF24_PA_MAX, RF24_2MBPS);
   radio.setChannel(124);
   radio.setPayloadSize(7);

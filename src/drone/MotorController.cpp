@@ -85,7 +85,7 @@ void MotorController::writeZero() {
 }
 
 void MotorController::writeToMotor(int index, float value) {
-  value = max(0.0f min(value, 1000.0f));
+  value = max(0.0f, min(value, 1000.0f));
   #if ESC_TYPE == PWM
     ESCsignal[index].writeMicroseconds(1000 + toInt(value));
   #elif ESC_TYPE == ONESHOT125

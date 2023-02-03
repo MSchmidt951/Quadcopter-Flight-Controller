@@ -33,7 +33,7 @@ class DroneRadio {
 
   private:
     ///Sets CE and CSN pins of the radio
-    RF24 radio{25, 10};
+    RF24 radio{32, 33};
     ///Addresses of the controller and device
     byte addresses[2][6] = {"C", "D"};
     ///Raw input data
