@@ -18,9 +18,6 @@
 #elif IMU_TYPE == IMU_MPU6050_DMP
   #include <Wire.h>
   #include <MPU6050_6Axis_MotionApps612.h>
-#elif IMU_TYPE == NO_IMU
-  #include <MPU6050_kriswiner.h>
-  #include <SimpleKalmanFilter.h>
 #endif
 
 //Import files
@@ -52,12 +49,16 @@ class IMU {
 
     /* Settings */
     ///IMU angle offset {roll, pitch and yaw}. Can be set via SD card
-    float angleOffset[3] = {8, 1.1, 0};
+    float angleOffset[3] = {0, 0, 0};
     /* Settings */
 
   private:
     //Define variables specific to setups
-    #if IMU_TYPE == IMU_MPU6050 or IMU_TYPE == NO_IMU
+    #if IMU_TYPE == NO_IMU
+      float maxAngle = 20;
+      float xIncrease = 0.0001;
+      float x = 0;
+    #elif IMU_TYPE == IMU_MPU6050
       ///Accelerometer value in Gs
       float accelVal[3];
       ///Gyroscope value in degrees per seconds
@@ -82,20 +83,18 @@ class IMU {
       /** Converts roll, pitch and yaw to quaternions */
       void eulerToQuat(float roll, float pitch, float yaw);
 
-      #if IMU_TYPE == IMU_MPU6050
-        ///MPU6050 object
-        MPU6050lib mpu;
-        ///Interrupt pin
-        const int intPin = 39;
-        ///Resolution of the accelerometer
-        float aRes;
-        ///Resolution of the accelerometer
-        float gRes;
-        ///Accelerometer sensor output
-        int16_t accelData[3];
-        ///Gyroscope sensor output
-        int16_t gyroData[3];
-      #endif
+      ///MPU6050 object
+      MPU6050lib mpu;
+      ///Interrupt pin
+      const int intPin = 39;
+      ///Resolution of the accelerometer
+      float aRes;
+      ///Resolution of the accelerometer
+      float gRes;
+      ///Accelerometer sensor output
+      int16_t accelData[3];
+      ///Gyroscope sensor output
+      int16_t gyroData[3];
     #elif IMU_TYPE == IMU_MPU6050_DMP
       //MPU control/status vars
       ///MPU6050 object

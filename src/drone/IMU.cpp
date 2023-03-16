@@ -5,7 +5,7 @@
 
 int IMU::init(Logger &logger) {
   //Load settings from the SD card
-  logger.loadSetting("angleOffset", angleOffset, 3);
+  logger.loadSetting("IMU", "angleOffset", angleOffset, 3);
 
   digitalWrite(lightPin, HIGH);
   #if IMU_TYPE == IMU_MPU6050
@@ -132,37 +132,21 @@ void IMU::updateAngle() {
       rRate[i] = gyroData[i] * 2000.0/32768.0;;
     }
   #elif IMU_TYPE == NO_IMU
-    for (int i=0; i<3; i++) {
-      gyroVal[i] = i*.0;
-    }
-    accelVal[0] = 1;
-    accelVal[1] = 0;
-    accelVal[2] = 0;
+    //Calculate roll, pitch and yaw
+    currentAngle[0] = maxAngle * sin(x);
+    currentAngle[1] = maxAngle * cos(x);
+    currentAngle[2] = 0;
 
-    //Update quaternion values
-    MadgwickQuaternionUpdate(accelVal, gyroVal);
-    //Convert quaternion to roll, pitch and yaw
-    currentAngle[0] = -atan2(2 * (q[0]*q[1] + q[2]*q[3]), q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3]);
-    currentAngle[1] = -asin(2 * (q[1]*q[3] - q[0]*q[2]));
-    currentAngle[2] = atan2(2 * (q[1]*q[2] + q[0]*q[3]), q[0]*q[0] + q[1]*q[1] - q[2]*q[2] - q[3]*q[3]);
-    //Convert from radians to degrees
-    for (int i=0; i<3; i++) {
-      currentAngle[i] *= 180 / PI;
-    }
+    x += xIncrease;
 
-    //Apply kalman filter to roll and pitch
-    currentAngle[0] = rollKalman.updateEstimate(currentAngle[0]);
-    currentAngle[1] = pitchKalman.updateEstimate(currentAngle[1]);
-
-    //Get rotation rate
-    for (int i=0; i<3; i++) {
-      rRate[i] = gyroVal[i];
-    }
+    rRate[0] = (currentAngle[0] - (maxAngle*sin(x))) / loopTime();
+    rRate[1] = (currentAngle[1] - (maxAngle*cos(x))) / loopTime();
+    rRate[2] = 0;
   #endif
 }
 
 //Functions for specific setups
-#if IMU_TYPE == IMU_MPU6050 or IMU_TYPE == NO_IMU
+#if IMU_TYPE == IMU_MPU6050
   //Kris Winer's implementation of Sebastian Madgwick's "...efficient orientation filter for... inertial/magnetic sensor arrays"
   //I have changd the inputs to work with my program
   void IMU::MadgwickQuaternionUpdate(float *accel, float *gyro) {
