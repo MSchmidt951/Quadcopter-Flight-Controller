@@ -1,36 +1,64 @@
 #include "PIDcontroller.h"
+#include "MotorController.h"
 
-void PIDcontroller::init(Logger &logger) {
-  //Load settings from the SD card
-  logger.loadSetting("maxAngle", maxAngle);
-  logger.loadSetting("Pgain", Pgain, 3);
-  logger.loadSetting("Igain", Igain, 3);
-  logger.loadSetting("Dgain", Dgain, 3);
+void PIDcontroller::init(Logger &logger, const char* parent, const char* name, float* targetPtr, float* currentPtr, float* currentDiffPtr) {
+  logger.loadSetting(parent, "PIDs", name, "PIDGains", PIDGains, 3);
 
-  maxAngle = 127.0/maxAngle;
+  logger.loadSetting(parent, "PIDs", name, "positiveCount", &positivePinCount);
+  positivePins = new int[positivePinCount];
+  logger.loadSetting(parent, "PIDs", name, "positive", positivePins, positivePinCount);
+
+  logger.loadSetting(parent, "PIDs", name, "negativeCount", &negativePinCount);
+  negativePins = new int[negativePinCount];
+  logger.loadSetting(parent, "PIDs", name, "negative", negativePins, negativePinCount);
+
+  namePtr = name;
+  target = targetPtr;
+  current = currentPtr;
+  currentDiff = currentDiffPtr;
 }
 
-void PIDcontroller::calcPID(IMU imu) {
-  //Calculate the change in motor power per axis
-  for (int i=0; i<2; i++) {
-    //Get difference between wanted and current angle
-    rpDiff[i] = (-xyzr[i]/maxAngle) - imu.currentAngle[i];
+void PIDcontroller::calc(MotorController* controller) {
+  float PIDchange = 0;
 
-    //Get proportional change
-    PIDchange[0][i] = rpDiff[i] * Pgain[i]/1000.0;
+  //Get difference between target and current angle
+  lastErr = currentErr;
+  currentErr = (*target)+inputOffset - (*current);
 
-    //Get integral change
-    Isum[i] += rpDiff[i] * loopTime();
-    PIDchange[1][i] = Isum[i] * Igain[i]/1000.0;
+  //Get proportional change
+  PIDchange = currentErr * PIDGains[0]/1000.0;
 
-    //Get derivative change
-    PIDchange[2][i] = imu.rRate[i] * -Dgain[i];
-  }
+  //Get integral change
+  iSum += currentErr * loopTime();
+  PIDchange += iSum * PIDGains[1]/1000.0;
 
-  //Yaw control
-  if (xyzr[3] == 0) {
-    PIDchange[2][2] = imu.rRate[2] * Dgain[2]; //Stabilise yaw rotation
+  //Get derivative change
+  if (currentDiff == NULL) {
+    PIDchange += ((currentErr - lastErr)/loopTime()) * -PIDGains[2];
   } else {
-    PIDchange[0][2] = xyzr[3] * Pgain[2]; //Joystick control
+    PIDchange += (*currentDiff) * -PIDGains[2];
   }
+
+  if (abs(PIDchange) > .001) {
+    for (int i=0; i<positivePinCount; i++) {
+      controller->addMotorPower(positivePins[i], PIDchange);
+    }
+    for (int i=0; i<negativePinCount; i++) {
+      controller->addMotorPower(negativePins[i], -PIDchange);
+      if (positivePinCount > 0) {
+        controller->addMotorPower(negativePins[i], .001);
+      }
+    }
+  }
+
+  //Reset inputs for the next loop
+  inputOffset = 0;
+}
+
+void PIDcontroller::addInput(float input) {
+  inputOffset += input;
+}
+
+const char* PIDcontroller::getName() {
+  return namePtr;
 }

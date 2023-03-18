@@ -11,6 +11,7 @@
 //Import libraries
 #if STORAGE_TYPE == SD_CARD
   #include <SdFat.h>
+  #define ARDUINOJSON_ENABLE_COMMENTS 1
   #include <ArduinoJson.h>
 #elif STORAGE_TYPE == RAM
   #include "Arduino.h"
@@ -93,6 +94,19 @@ class Logger {
      *  @param[in] seperator Whether or not to add a seperator before logging the variable
      */
     void logSetting(String name, const float *arr, int len, int decimals, bool seperator=true);
+    /** Get the amount of controls that an object has
+     *  
+     *  @param[in] name Name of the object
+     *  @returns Total number of inputs the object has
+     */
+    int getInputCount(String name);
+    /** Get the name of an input
+     *  
+     *  @param[in] parent The parent object that the controls belong to
+     *  @param[in] index Index of the input to return
+     *  @returns Name of the input
+     */
+    const char* getInputName(const char* parent, int index);
     /** Checks if data should be logged this loop
      *  
      *  @returns true if data should be logged
@@ -126,34 +140,59 @@ class Logger {
 
     /** Load a setting from storage
      *  
+     *  @param[in] parent Parent object of the setting
      *  @param[in] name Name of the setting
-     *  @param[out] var Variable to set
+     *  @param[out] var Variable to set, if var is not an array, the address is passed instead
+     *  @param[in] len Length of the array (if an array is passed)
+     *  @returns Returns true if setting loaded correctly
      */
-    template <typename T> void loadSetting(String name, T &var){
+    template <typename T> bool loadSetting(String parent, String name, T *var, int len=1) {
       #if STORAGE_TYPE == SD_CARD
-        if (sdSettings.containsKey(name)) {
-          if (sdSettings[name] != "default") {
-            var = sdSettings[name];
+        if (!sdSettings[parent][name].isNull()) {
+          if (len == 1) {
+            if (sdSettings[parent][name] != "default") {
+              var[0] = sdSettings[parent][name];
+            }
+          } else {
+            for (int i=0; i<len; i++) {
+              if (sdSettings[parent][name][i] != "default") {
+                var[i] = sdSettings[parent][name][i];
+              }
+            }
           }
+          return true;
         }
       #endif
+      return false;
     }
     /** Load a setting from storage
      *  
+     *  @param[in] parent Parent object of the setting
+     *  @param[in] type Type of setting ("Controls" or "PIDs")
      *  @param[in] name Name of the setting
-     *  @param[out] var Variable to set
+     *  @param[in] subSetting Name of the sub setting
+     *  @param[out] var Variable to set, if var is not an array, the address is passed instead
      *  @param[in] len Length of the array
+     *  @returns Returns true if setting loaded correctly
      */
-    template <typename T> void loadSetting(String name, T *var, int len){
+    template <typename T> bool loadSetting(String parent, String type, String name, String subSetting, T *var, int len=1) {
       #if STORAGE_TYPE == SD_CARD
-        if (sdSettings.containsKey(name)) {
-          for (int i=0; i<len; i++) {
-            if (sdSettings[name][i] != "default") {
-              var[i] = sdSettings[name][i];
+        if (!sdSettings[parent][type][name][subSetting].isNull()) {
+          if (len == 1) {
+            if (sdSettings[parent][type][name][subSetting] != "default") {
+              var[0] = sdSettings[parent][type][name][subSetting];
+            }
+          } else {
+            for (int i=0; i<len; i++) {
+              if (sdSettings[parent][type][name][subSetting][i] != "default") {
+                var[i] = sdSettings[parent][type][name][subSetting][i];
+              }
             }
           }
+          return true;
         }
       #endif
+      return false;
     }
     /** Log data to the binary log file
      *  
@@ -226,7 +265,7 @@ class Logger {
       ///Binary log file object
       FsFile logFileBin;
       ///JSON document holding all the settings
-      StaticJsonDocument<512> sdSettings;
+      StaticJsonDocument<4096> sdSettings;
     #elif STORAGE_TYPE == RAM
       ///Buffer that holds all of the data in RAM mode
       uint32_t bigBuf[2100*36/4];

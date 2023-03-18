@@ -5,6 +5,8 @@
 #include "IMU.h"
 #include "Logger.h"
 
+class MotorController;
+
 extern int xyzr[4];
 
 /** 
@@ -13,37 +15,60 @@ extern int xyzr[4];
  */
 class PIDcontroller {
   public:
-    /** Loads settings from the SD card.
+    /** Initialises a PIDcontroller object. Settings are configured in settings.json
      *  
      *  @param[in] logger Logger object to read the settings from
+     *  @param[in] parent Name of the parent object
+     *  @param[in] name Name of the PID, must be the same as one of the objects in settings.json
+     *  @param[in] targetPtr Pointer to the target value
+     *  @param[in] currentPtr Pointer to the current value
+     *  @param[in] currentDiffPtr Pointer to the current change in value, if NULL then it is calculated
      */
-    void init(Logger &logger);
-    /** Calculate new PID values based on the IMU data.
+    void init(Logger &logger, const char* parent, const char* name, float* targetPtr, float* currentPtr, float* currentDiffPtr);
+    /** Calculates and applies PID change to a MotorController
      *  
-     *  @param[in] imu IMU object to read the data from
+     *  @param[in] controller MotorController object to apply the PID to
      */
-    void calcPID(IMU imu);
-    
-    ///The change from the P, I and D values that will be applied to the roll, pitch & yaw; PIDchange[P/I/D][roll/pitch/yaw]
-    float PIDchange[3][3] = {{0,0,0}, {0,0,0}, {0,0,0}};
-
-    /* Settings */
-    //User input
-    ///Maximum wanted bank angle available to select by the user. Can be set via SD card
-    float maxAngle = 15.0;
-    //Performance
-    ///Proportional gain for roll, pitch & yaw, percentage difference per ESC at 10 degrees. Can be set via SD card
-    float Pgain[3] = {2.0, 2.0, 0};
-    ///Integral gain for roll, pitch & yaw, changes motor performance over time. Can be set via SD card
-    float Igain[3] = {.0000, .0000, 0};
-    ///Differential gain for roll, pitch & yaw, helps control the rotation speed. Can be set via SD card
-    float Dgain[3] = {.33, .33, 0};
-    /* Settings */
+    void calc(MotorController* controller);
+    /** Applies an offset to the target, used by InputHandler
+     *  
+     *  @param[in] input Value to offset the target by
+     */
+    void addInput(float input);
+    /** Retrieves the name of the object
+     *  
+     *  @returns the name of the object
+     */
+    const char* getName();
 
   private:
-    ///Difference in roll & pitch from the wanted angle
-    float rpDiff[2] = {0,0};
-    ///The sum of the difference in angles used to calculate the integral change
-    float Isum[2];
+    ///The name of the PID controller, used for loading settings from settings.json
+    const char* namePtr;
+    ///Number of positive pins
+    int positivePinCount = 0;
+    ///Array containing the indexes of pins which are affected positively by the PID
+    int* positivePins;
+    ///Number of negative pins
+    int negativePinCount = 0;
+    ///Array containing the indexes of pins which are affected negatively by the PID
+    int* negativePins;
+    ///The proportional, integral and derivative gains
+    float PIDGains[3];
+
+    ///Target value
+    float* target;
+    ///Current value
+    float* current;
+    ///Current differentail change
+    float* currentDiff;
+
+    ///Offset applied to the target. Determined by inputs
+    float inputOffset = 0;
+    ///Difference between the current and target
+    float currentErr = 0;
+    ///Difference between the current and target of the previous loop
+    float lastErr = 0;
+    ///The sum of the difference between the current and target value used to calculate the integral change
+    float iSum = 0;
 };
 #endif

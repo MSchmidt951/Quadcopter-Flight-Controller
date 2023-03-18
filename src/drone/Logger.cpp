@@ -1,6 +1,6 @@
 #include "Logger.h"
 
-void Logger::init(){
+void Logger::init() {
   #if STORAGE_TYPE == SD_CARD
     checkSD(sd.begin(SdioConfig(FIFO_SDIO)));
     checkLog(0);
@@ -10,14 +10,13 @@ void Logger::init(){
     checkSD(logFileBin.preAllocate(logFileSize));
   
     //Get settings file
-    if (sd.exists("settings.json")) {
-      FsFile settingsFile;
-      settingsFile.open("settings.json");
-      if (deserializeJson(sdSettings, settingsFile)) {
-        logString("JSON ERROR ");
-      }
-      settingsFile.close();
+    checkSD(sd.exists("settings.json"));
+    FsFile settingsFile;
+    settingsFile.open("settings.json");
+    if (deserializeJson(sdSettings, settingsFile)) {
+      logString("JSON ERROR ");
     }
+    settingsFile.close();
   #elif STORAGE_TYPE == RAM
     Serial.begin(115200);
   #endif
@@ -33,10 +32,10 @@ void Logger::checkSD(bool condition) {
 
 void Logger::checkLog(int fileNum) {
   #if STORAGE_TYPE == SD_CARD
-    char fileName[10];
+    char fileName[11];
     String("log_" + String(fileNum) + ".csv").toCharArray(fileName, sizeof(fileName));
     if (sd.exists(fileName)) {
-      char nextFile[10];
+      char nextFile[11];
       String("log_" + String(fileNum+1) + ".csv").toCharArray(nextFile, sizeof(nextFile));
       if (sd.exists(nextFile)) {
         checkLog(fileNum+1);
@@ -69,6 +68,22 @@ void Logger::logSetting(String name, const float *arr, int len, int decimals, bo
   }
   logString(name);
   logArray(arr, len, decimals);
+}
+
+int Logger::getInputCount(String name) {
+  #if STORAGE_TYPE == SD_CARD
+    return sdSettings[name]["Controls"].size();
+  #else
+    return 0;
+  #endif
+}
+
+const char* Logger::getInputName(const char* parent, int index) {
+  #if STORAGE_TYPE == SD_CARD
+    return sdSettings[parent]["Controls"].getElement(index);
+  #else
+    return "";
+  #endif
 }
 
 bool Logger::checkLogReady() {

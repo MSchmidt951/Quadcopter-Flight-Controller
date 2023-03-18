@@ -31,9 +31,8 @@ float potPercent = 0;    //Percentage of the controllers potentiometer, used as 
 bool light = false;
 bool standbyButton = false;
 
-//Rotation vars
+//Sensor vars
 IMU imu;
-PIDcontroller pid;
 
 //Hardware vars
 const int lightPin = 23;
@@ -100,9 +99,6 @@ void setup(){
   //Set up SD card
   logger.init();
 
-  //Set up PID controller
-  pid.init(logger);
-
   //Set up inertial measurement unit
   if (imu.init(logger)) {
     logger.logString("IMU error");
@@ -110,22 +106,29 @@ void setup(){
   }
 
   //Set up motors
-  ESC.init(logger);
+  if (!ESC.init(logger, "4in1_ESC", true)) {
+    ABORT();
+  }
+  ESC.addPID("roll",  0.0f, &imu.currentAngle[0], &imu.rRate[0]);
+  ESC.addPID("pitch", 0.0f, &imu.currentAngle[1], &imu.rRate[1]);
+  ESC.addPID("yaw",   0.0f, &imu.currentAngle[2], &imu.rRate[2]);
+  ESC.setupInputs();
+  //delay(2000); //Wait for motors to finish arming. Not needed if motors are armed with init()
 
   //Log the settings
   logger.logString("User input\n");
-  logger.logSetting("maxZdiff", ESC.maxZdiff, 2, 2, false);
-  logger.logSetting("potMaxDiff", ESC.potMaxDiff);
-  logger.logSetting("maxAngle", 127/pid.maxAngle);
+  ////logger.logSetting("maxZdiff", ESC.maxZdiff, 2, 2, false);
+  ////logger.logSetting("potMaxDiff", ESC.potMaxDiff);
+  ////logger.logSetting("maxAngle", 127/pid.maxAngle);
   logger.logString("\nOffsets\n");
-  logger.logSetting("motorOffset", ESC.offset, 4, 3, false);
+  ////logger.logSetting("motorOffset", ESC.offset, 4, 3, false);
   logger.logSetting("angleOffset", imu.angleOffset, 3, 2);
-  logger.logSetting("defaultZ", ESC.defaultZ);
+  ////logger.logSetting("defaultZ", ESC.defaultZ);
   logger.logString("\nPerformance\n");
   logger.logSetting("Loop rate", loopRate, false);
-  logger.logSetting("Pgain", pid.Pgain, 3, 2);
-  logger.logSetting("Igain", pid.Igain, 3, 4);
-  logger.logSetting("Dgain", pid.Dgain, 3, 3);
+  ////logger.logSetting("Pgain", pid.Pgain, 3, 2);
+  ////logger.logSetting("Igain", pid.Igain, 3, 4);
+  ////logger.logSetting("Dgain", pid.Dgain, 3, 3);
   logger.logString("\nchangeLog,CHANGELOG GOES HERE\n");
   logger.logString("Time (μs),Loop time (μs),Roll input,Pitch input,Vertical input,Yaw input,Pot,roll,pitch,Pr,Pp,Ir,Ip,Dr,Dp,radio,yaw");
   
@@ -177,18 +180,10 @@ void loop(){
     }
 
 
-    /* Calculate motor speeds */
-    pid.calcPID(imu);
-    
-    //Apply the calculated roll, pitch and yaw change
-    ESC.addChange(pid.PIDchange, 0, 0,2, 1,3);
-    ESC.addChange(pid.PIDchange, 1, 0,1, 2,3);
-    ESC.addChange(pid.PIDchange, 2, 0,3, 1,2);
-
-
-    /* Apply input to hardware */
+    /* Calculate and apply hardware values */
     digitalWrite(lightPin, light);
     ESC.write();
+
 
     /* Log flight info */
     if (logger.checkLogReady()) {
@@ -202,7 +197,7 @@ void loop(){
       }
       for (int i=0; i<3; i++) {
         for (int j=0; j<2; j++) {
-          logger.logData(pid.PIDchange[i][j], typeID.float16k);
+          ////logger.logData(pid.PIDchange[i][j], typeID.float16k);
         }
       }
       logger.logData((uint16_t)(droneRadio.timer/1000), typeID.uint16);
